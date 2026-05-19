@@ -9,15 +9,31 @@ import Footer from '../components/Footer';
 import { api } from '../services/api';
 import { normalizeDoctor } from '../utils/normalizeDoctor';
 
-const cal = [
-  { day:'', past: true },{ day:'', past: true },{ day:'', past: true },
-  { day:'1', hasSlot: true },{ day:'2', hasSlot: true },{ day:'3', hasSlot: true },{ day:'4', past: true },
-  { day:'5', past: true },{ day:'6', past: true },{ day:'7', past: true },
-  { day:'8', today: true },{ day:'9', hasSlot: true },{ day:'10', hasSlot: true },{ day:'11', hasSlot: true },
-  { day:'12', hasSlot: true },{ day:'13' },{ day:'14', hasSlot: true },{ day:'15', hasSlot: true },
-  { day:'16' },{ day:'17', hasSlot: true },{ day:'18', hasSlot: true },
-];
 const calDays = ['S','M','T','W','T','F','S'];
+
+const toDateKey = (date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const buildCalendarDays = (monthDate) => {
+  const year = monthDate.getFullYear();
+  const month = monthDate.getMonth();
+  const firstDay = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const cells = Array.from({ length: firstDay }, () => null);
+  const todayKey = toDateKey(new Date());
+
+  for (let day = 1; day <= daysInMonth; day += 1) {
+    const date = new Date(year, month, day);
+    const key = toDateKey(date);
+    cells.push({ day, date, key, past: key < todayKey, today: key === todayKey });
+  }
+
+  return cells;
+};
 
 export default function DoctorProfile() {
   const { id } = useParams();
@@ -32,6 +48,19 @@ export default function DoctorProfile() {
   const [bookingError, setBookingError] = useState(null);
   const [error, setError] = useState(null);
   const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().slice(0,10));
+  const [calendarMonth, setCalendarMonth] = useState(() => new Date());
+
+  const calendarDays = buildCalendarDays(calendarMonth);
+
+  const changeMonth = (offset) => {
+    setCalendarMonth(prev => new Date(prev.getFullYear(), prev.getMonth() + offset, 1));
+  };
+
+  const selectDate = (dateKey) => {
+    setSelectedDate(dateKey);
+    setSlot('');
+    setBookingError(null);
+  };
 
   const handleBook = async () => {
     if (!selectedSlot || !doctor) return;
@@ -172,7 +201,7 @@ export default function DoctorProfile() {
                 <div className="border border-border rounded-sm overflow-hidden mb-5">
                   <div className="flex justify-between items-center px-4 py-3 bg-blue text-white text-[14px] font-semibold">
                     <button className="w-7 h-7 rounded-sm bg-white/20 text-white text-[16px] leading-none">‹</button>
-                    May 2024
+                    {calendarMonth.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}
                     <button className="w-7 h-7 rounded-sm bg-white/20 text-white text-[16px] leading-none">›</button>
                   </div>
                   <div className="p-3">
@@ -180,16 +209,21 @@ export default function DoctorProfile() {
                       {calDays.map(d => <div key={d} className="text-[11px] font-bold text-muted text-center py-1 uppercase">{d}</div>)}
                     </div>
                     <div className="grid grid-cols-7 gap-1">
-                      {cal.map((c, i) => (
-                        <div key={i} className={`text-[13px] text-center py-[7px] rounded-sm cursor-pointer font-medium relative transition-all
-                          ${!c.day ? 'cursor-default' : ''}
-                          ${c.past ? 'text-border cursor-not-allowed' : ''}
-                          ${c.today ? 'bg-blue text-white font-bold' : ''}
-                          ${!c.past && !c.today && c.day ? 'text-slate hover:bg-blue-light hover:text-blue' : ''}
+                      {calendarDays.map((c, i) => (
+                        <button
+                          key={c?.key || `empty-${i}`}
+                          type="button"
+                          disabled={!c || c.past}
+                          onClick={() => selectDate(c.key)}
+                          className={`text-[13px] text-center py-[7px] rounded-sm font-medium relative transition-all
+                          ${!c ? 'cursor-default' : 'cursor-pointer'}
+                          ${c?.past ? 'text-border cursor-not-allowed' : ''}
+                          ${c?.key === selectedDate ? 'bg-blue text-white font-bold' : ''}
+                          ${c?.today && c.key !== selectedDate ? 'ring-1 ring-blue text-blue' : ''}
+                          ${c && !c.past && c.key !== selectedDate ? 'text-slate hover:bg-blue-light hover:text-blue' : ''}
                         `}>
-                          {c.day}
-                          {c.hasSlot && !c.today && <span className="absolute bottom-0.5 left-1/2 -translate-x-1/2 w-1 h-1 bg-green rounded-full" />}
-                        </div>
+                          {c?.day || ''}
+                        </button>
                       ))}
                     </div>
                   </div>
@@ -199,19 +233,23 @@ export default function DoctorProfile() {
                 <div className="grid grid-cols-3 gap-2 mb-5">
                   {loadingSlots && <div className="col-span-3 text-center text-muted">Loading slots…</div>}
                   {!loadingSlots && slots.length === 0 && <div className="col-span-3 text-center text-muted">No slots available for this date.</div>}
-                  {slots.map(slot => (
-                    <button key={slot.time_slot || slot.time} disabled={!slot.is_active && !slot.available}
-                      onClick={() => setSlot(slot.time_slot || slot.time)}
+                  {slots.map(slot => {
+                    const slotTime = slot.time_slot || slot.time;
+                    const slotAvailable = slot.is_active ?? slot.available ?? true;
+
+                    return (
+                    <button key={slotTime} disabled={!slotAvailable}
+                      onClick={() => setSlot(slotTime)}
                       className={`py-2.5 text-center rounded-sm text-[13px] font-semibold border transition-all duration-200 ${
-                        !(slot.is_active ?? slot.available)
+                        !slotAvailable
                           ? 'border-border text-border bg-bg cursor-not-allowed'
-                          : selectedSlot === (slot.time_slot || slot.time)
+                          : selectedSlot === slotTime
                             ? 'bg-green border-green text-white'
                             : 'border-green text-green bg-green-light hover:bg-green hover:text-white'
                       }`}>
-                      {slot.time_slot || slot.time}
+                      {slotTime}
                     </button>
-                  ))}
+                  )})}
                 </div>
 
                 {bookingError && (

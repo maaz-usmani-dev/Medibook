@@ -113,6 +113,17 @@ const initGoogleButton = ({ buttonId, onSuccess }) => {
   });
 };
 
+const decodeGoogleProfile = (idToken) => {
+  try {
+    const payload = idToken.split('.')[1];
+    const normalized = payload.replace(/-/g, '+').replace(/_/g, '/');
+    const padded = normalized.padEnd(normalized.length + ((4 - (normalized.length % 4)) % 4), '=');
+    return JSON.parse(window.atob(padded));
+  } catch (_err) {
+    return null;
+  }
+};
+
 export function SignUp() {
   const navigate = useNavigate();
   const [form, setForm] = useState({
@@ -133,6 +144,7 @@ export function SignUp() {
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
   const [apiError, setApiError] = useState("");
+  const [prefillInfo, setPrefillInfo] = useState("");
   const [googleUser, setGoogleUser] = useState(null);
   const [googleExtra, setGoogleExtra] = useState({
     role: 'patient',
@@ -159,29 +171,21 @@ export function SignUp() {
       return;
     }
 
-    try {
-      setLoading(true);
-      setApiError("");
-
-      const data = await api.googleLogin({ idToken });
-      if (data.needsProfileCompletion) {
-        setGoogleUser(data.user);
-        return;
-      }
-
-      localStorage.setItem("user", JSON.stringify(data.user));
-      if (data.user.role === "doctor") {
-        navigate("/doctor-dashboard");
-      } else if (data.user.role === "admin") {
-        navigate("/admin-dashboard");
-      } else {
-        navigate("/patient-dashboard");
-      }
-    } catch (err) {
-      setApiError(err.message || "Google sign in failed.");
-    } finally {
-      setLoading(false);
+    const profile = decodeGoogleProfile(idToken);
+    if (!profile?.email) {
+      setApiError('Google did not return a usable email address.');
+      return;
     }
+
+    const nameParts = (profile.name || '').trim().split(' ').filter(Boolean);
+    setForm(current => ({
+      ...current,
+      firstName: nameParts[0] || current.firstName,
+      lastName: nameParts.slice(1).join(' ') || current.lastName,
+      email: profile.email,
+    }));
+    setApiError("");
+    setPrefillInfo("Google details filled in. Complete the remaining fields to create your account.");
   };
 
   const handleGoogleCompletion = async (e) => {
@@ -303,6 +307,11 @@ export function SignUp() {
             {apiError && (
               <div className="bg-red-light border border-red/20 text-red text-[13px] rounded-sm px-4 py-3">
                 {apiError}
+              </div>
+            )}
+            {prefillInfo && (
+              <div className="bg-blue-light border border-blue/20 text-blue text-[13px] rounded-sm px-4 py-3">
+                {prefillInfo}
               </div>
             )}
             <div className="grid grid-cols-2 gap-4">
