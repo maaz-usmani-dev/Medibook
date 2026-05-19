@@ -41,6 +41,7 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [actionLoading, setActionLoading] = useState(false);
+  const [showNotifications, setShowNotifications] = useState(false);
   const [showAddDoctor, setShowAddDoctor] = useState(false);
   const [newDoctor, setNewDoctor] = useState({
     user_id: '',
@@ -98,6 +99,18 @@ export default function AdminDashboard() {
       color: ['bg-blue', 'bg-red', 'bg-green', 'bg-amber', 'bg-purple'][index % 5],
     }));
   }, [doctors]);
+
+  const notifications = useMemo(() => {
+    const pendingCount = pendingDoctors.length;
+    const pendingAppointmentCount = appointments.filter(a => a.status === 'pending').length;
+    const blockedUserCount = users.filter(u => u.is_blocked).length;
+
+    return [
+      pendingCount > 0 ? `${pendingCount} doctor application${pendingCount === 1 ? '' : 's'} pending approval` : null,
+      pendingAppointmentCount > 0 ? `${pendingAppointmentCount} appointment${pendingAppointmentCount === 1 ? '' : 's'} still pending` : null,
+      blockedUserCount > 0 ? `${blockedUserCount} blocked user${blockedUserCount === 1 ? '' : 's'} on the platform` : null,
+    ].filter(Boolean);
+  }, [appointments, pendingDoctors, users]);
 
   useEffect(() => {
     const loadAdminData = async () => {
@@ -231,10 +244,26 @@ export default function AdminDashboard() {
           <h2 className="text-[18px] font-bold text-dark">Admin Dashboard</h2>
           <div className="flex items-center gap-3">
             <button onClick={() => { setTab('doctors'); setShowAddDoctor(true); }} className="btn-primary text-[13px] py-2 px-[18px]"><Plus size={14} weight="bold"/>Add Doctor</button>
-            <button className="relative w-[38px] h-[38px] border border-border rounded-sm flex items-center justify-center">
+            <button onClick={() => setShowNotifications(!showNotifications)} className="relative w-[38px] h-[38px] border border-border rounded-sm flex items-center justify-center">
               <Bell size={18} className="text-slate" />
-              <span className="absolute top-[7px] right-[7px] w-2 h-2 bg-red rounded-full border-2 border-white" />
+              {notifications.length > 0 && <span className="absolute top-[7px] right-[7px] w-2 h-2 bg-red rounded-full border-2 border-white" />}
             </button>
+            {showNotifications && (
+              <div className="absolute right-8 top-[58px] w-[320px] bg-white border border-border rounded-sm shadow-lg p-4 z-20">
+                <h4 className="text-[14px] font-bold text-dark mb-3">Notifications</h4>
+                {notifications.length === 0 ? (
+                  <p className="text-[13px] text-muted">No new admin notifications.</p>
+                ) : (
+                  <div className="space-y-2">
+                    {notifications.map((note) => (
+                      <button key={note} onClick={() => setTab(note.includes('doctor') ? 'doctors' : note.includes('appointment') ? 'appointments' : 'users')} className="w-full text-left text-[13px] text-slate bg-bg hover:bg-blue-light rounded-sm px-3 py-2">
+                        {note}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
 

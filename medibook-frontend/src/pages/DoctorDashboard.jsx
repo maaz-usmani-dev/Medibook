@@ -48,6 +48,7 @@ export default function DoctorDashboard() {
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [error, setError] = useState(null);
   const [actionLoading, setActionLoading] = useState(false);
+  const [showNotifications, setShowNotifications] = useState(false);
 
   const storedUser = typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('user') || '{}') : {};
   const doctorName = doctorProfile?.full_name || storedUser.full_name || doc.name;
@@ -185,6 +186,19 @@ export default function DoctorDashboard() {
     ];
   }, [appointments]);
 
+  const notifications = useMemo(() => {
+    const pendingCount = appointments.filter(a => a.status === 'pending').length;
+    const today = new Date().toISOString().slice(0, 10);
+    const todayCount = appointments.filter(a => String(a.appointment_date).slice(0, 10) === today).length;
+    const hasSlots = availability.length > 0;
+
+    return [
+      pendingCount > 0 ? `${pendingCount} appointment request${pendingCount === 1 ? '' : 's'} need review` : null,
+      todayCount > 0 ? `${todayCount} appointment${todayCount === 1 ? '' : 's'} scheduled today` : null,
+      !hasSlots ? 'Add availability slots so patients can book you' : null,
+    ].filter(Boolean);
+  }, [appointments, availability]);
+
   const groupedSlots = useMemo(() => {
     return availability.reduce((acc, slot) => {
       acc[slot.day_of_week] = acc[slot.day_of_week] || [];
@@ -201,10 +215,26 @@ export default function DoctorDashboard() {
         <div className="bg-white border-b border-border px-8 h-[68px] flex items-center justify-between sticky top-0 z-10">
           <h2 className="text-[18px] font-bold text-dark">Doctor Dashboard</h2>
           <div className="flex items-center gap-3.5">
-            <button className="relative w-[38px] h-[38px] border border-border rounded-sm flex items-center justify-center">
+            <button onClick={() => setShowNotifications(!showNotifications)} className="relative w-[38px] h-[38px] border border-border rounded-sm flex items-center justify-center">
               <Bell size={18} className="text-slate" />
-              <span className="absolute top-[7px] right-[7px] w-2 h-2 bg-red rounded-full border-2 border-white" />
+              {notifications.length > 0 && <span className="absolute top-[7px] right-[7px] w-2 h-2 bg-red rounded-full border-2 border-white" />}
             </button>
+            {showNotifications && (
+              <div className="absolute right-8 top-[58px] w-[320px] bg-white border border-border rounded-sm shadow-lg p-4 z-20">
+                <h4 className="text-[14px] font-bold text-dark mb-3">Notifications</h4>
+                {notifications.length === 0 ? (
+                  <p className="text-[13px] text-muted">No new notifications.</p>
+                ) : (
+                  <div className="space-y-2">
+                    {notifications.map((note) => (
+                      <button key={note} onClick={() => setTab(note.includes('availability') || note.includes('slots') ? 'availability' : 'appointments')} className="w-full text-left text-[13px] text-slate bg-bg hover:bg-blue-light rounded-sm px-3 py-2">
+                        {note}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
             <div className="flex items-center gap-2.5 cursor-pointer px-2.5 py-1.5 rounded-sm hover:bg-bg transition-colors">
               <div className="w-9 h-9 rounded-full bg-blue-light text-blue grid place-items-center font-semibold text-sm">{doctorInitials}</div>
               <span className="text-[14px] font-semibold text-dark">{doctorName} ▾</span>

@@ -397,6 +397,15 @@ export function SignUp() {
               </div>
             </div>
 
+            {form.role === 'doctor' && (
+              <div className="grid grid-cols-2 gap-4">
+                <SignUpField form={form} errors={errors} onChange={ch} name="specialty" label="Specialty" placeholder="Cardiology" half />
+                <SignUpField form={form} errors={errors} onChange={ch} name="hospital" label="Hospital / Clinic" placeholder="City Hospital" half />
+                <SignUpField form={form} errors={errors} onChange={ch} name="experience_years" label="Experience Years" type="number" placeholder="5" half />
+                <SignUpField form={form} errors={errors} onChange={ch} name="fee" label="Consultation Fee" type="number" placeholder="1500" half />
+              </div>
+            )}
+
             {/* Role picker */}
             <div>
               <label className="form-label block mb-2">I am a</label>
@@ -417,15 +426,6 @@ export function SignUp() {
                 ))}
               </div>
             </div>
-
-            {form.role === 'doctor' && (
-              <div className="grid grid-cols-2 gap-4">
-                <SignUpField form={form} errors={errors} onChange={ch} name="specialty" label="Specialty" placeholder="Cardiology" half />
-                <SignUpField form={form} errors={errors} onChange={ch} name="hospital" label="Hospital / Clinic" placeholder="City Hospital" half />
-                <SignUpField form={form} errors={errors} onChange={ch} name="experience_years" label="Experience Years" type="number" placeholder="5" half />
-                <SignUpField form={form} errors={errors} onChange={ch} name="fee" label="Consultation Fee" type="number" placeholder="1500" half />
-              </div>
-            )}
 
             <button
               type="submit"

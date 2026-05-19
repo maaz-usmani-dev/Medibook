@@ -64,6 +64,7 @@ export default function PatientDashboard() {
   const [error, setError] = useState(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [profileSaving, setProfileSaving] = useState(false);
+  const [showNotifications, setShowNotifications] = useState(false);
 
   const fetchAppointments = async () => {
     setLoading(true);
@@ -159,6 +160,19 @@ export default function PatientDashboard() {
     { label: 'Cancelled', val: past.filter(a => a.status === 'cancelled').length, color: 'bg-red-light', iconColor: 'text-red', change: 'Recently cancelled', up: false },
   ], [appointments, past, upcoming]);
 
+  const notifications = useMemo(() => {
+    const nextAppointment = upcoming
+      .slice()
+      .sort((a, b) => new Date(a.appointment_date) - new Date(b.appointment_date))[0];
+    const pendingCount = appointments.filter(a => a.status === 'pending').length;
+
+    return [
+      nextAppointment ? `Next appointment: ${nextAppointment.doctor_name} on ${new Date(nextAppointment.appointment_date).toLocaleDateString()} at ${nextAppointment.time_slot}` : null,
+      pendingCount > 0 ? `${pendingCount} appointment${pendingCount === 1 ? '' : 's'} waiting for confirmation` : null,
+      !profile.phone ? 'Complete your phone number in profile' : null,
+    ].filter(Boolean);
+  }, [appointments, profile.phone, upcoming]);
+
   return (
     <div className="flex min-h-screen bg-bg">
       <Sidebar
@@ -181,10 +195,26 @@ export default function PatientDashboard() {
         <div className="bg-white border-b border-border px-8 h-[68px] flex items-center justify-between sticky top-0 z-10">
           <h2 className="text-[18px] font-bold text-dark">Dashboard</h2>
           <div className="flex items-center gap-3.5">
-            <button className="relative w-[38px] h-[38px] border border-border rounded-sm flex items-center justify-center">
+            <button onClick={() => setShowNotifications(!showNotifications)} className="relative w-[38px] h-[38px] border border-border rounded-sm flex items-center justify-center">
               <Bell size={18} className="text-slate" />
-              <span className="absolute top-[7px] right-[7px] w-2 h-2 bg-red rounded-full border-2 border-white" />
+              {notifications.length > 0 && <span className="absolute top-[7px] right-[7px] w-2 h-2 bg-red rounded-full border-2 border-white" />}
             </button>
+            {showNotifications && (
+              <div className="absolute right-8 top-[58px] w-[320px] bg-white border border-border rounded-sm shadow-lg p-4 z-20">
+                <h4 className="text-[14px] font-bold text-dark mb-3">Notifications</h4>
+                {notifications.length === 0 ? (
+                  <p className="text-[13px] text-muted">No new notifications.</p>
+                ) : (
+                  <div className="space-y-2">
+                    {notifications.map((note) => (
+                      <button key={note} onClick={() => setTab(note.includes('profile') ? 'profile' : 'appointments')} className="w-full text-left text-[13px] text-slate bg-bg hover:bg-blue-light rounded-sm px-3 py-2">
+                        {note}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
             <div className="flex items-center gap-2.5 cursor-pointer px-2.5 py-1.5 rounded-sm hover:bg-bg transition-colors">
               <img src={profile.img} alt={profile.name} className="w-9 h-9 rounded-full object-cover" />
               <span className="text-[14px] font-semibold text-dark">{profile.name}</span>
