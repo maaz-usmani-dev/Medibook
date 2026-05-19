@@ -53,7 +53,7 @@ const AuthRight = ({ img, quote }) => (
   </div>
 );
 
-function SignUpField({ form, errors, onChange, name, label, type = "text", placeholder, half }) {
+function SignUpField({ form, errors, onChange, name, label, type = "text", placeholder, half, highlighted = false, readOnly = false }) {
   return (
     <div className={half ? "" : "col-span-2"}>
       <label className="form-label block mb-1.5">{label}</label>
@@ -63,7 +63,8 @@ function SignUpField({ form, errors, onChange, name, label, type = "text", place
         value={form[name]}
         onChange={onChange}
         placeholder={placeholder}
-        className={`form-input ${errors[name] ? "border-red" : ""}`}
+        readOnly={readOnly}
+        className={`form-input ${errors[name] ? "border-red" : ""} ${highlighted ? "bg-blue-light border-blue/30" : ""}`}
       />
       {errors[name] && (
         <p className="text-[12px] text-red mt-1">{errors[name]}</p>
@@ -171,21 +172,42 @@ export function SignUp() {
       return;
     }
 
-    const profile = decodeGoogleProfile(idToken);
-    if (!profile?.email) {
-      setApiError('Google did not return a usable email address.');
-      return;
-    }
+    try {
+      setLoading(true);
+      setApiError("");
 
-    const nameParts = (profile.name || '').trim().split(' ').filter(Boolean);
-    setForm(current => ({
-      ...current,
-      firstName: nameParts[0] || current.firstName,
-      lastName: nameParts.slice(1).join(' ') || current.lastName,
-      email: profile.email,
-    }));
-    setApiError("");
-    setPrefillInfo("Google details filled in. Complete the remaining fields to create your account.");
+      const data = await api.googleLogin({ idToken });
+      if (!data.needsProfileCompletion) {
+        localStorage.setItem("user", JSON.stringify(data.user));
+        if (data.user.role === "doctor") {
+          navigate("/doctor-dashboard");
+        } else if (data.user.role === "admin") {
+          navigate("/admin-dashboard");
+        } else {
+          navigate("/patient-dashboard");
+        }
+        return;
+      }
+
+      const profile = decodeGoogleProfile(idToken);
+      const name = profile?.name || data.user.full_name || '';
+      const nameParts = name.trim().split(' ').filter(Boolean);
+
+      setGoogleUser(data.user);
+      setForm(current => ({
+        ...current,
+        firstName: nameParts[0] || current.firstName,
+        lastName: nameParts.slice(1).join(' ') || current.lastName,
+        email: profile?.email || data.user.email,
+        password: '',
+        confirm: '',
+      }));
+      setPrefillInfo("Google details filled in. Complete the remaining fields to create your account.");
+    } catch (err) {
+      setApiError(err.message || "Google sign up failed.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleGoogleCompletion = async (e) => {
@@ -228,8 +250,8 @@ export function SignUp() {
     if (!form.firstName.trim()) err.firstName = "Required";
     if (!form.lastName.trim()) err.lastName = "Required";
     if (!form.email.includes("@")) err.email = "Enter a valid email";
-    if (form.password.length < 8) err.password = "Minimum 8 characters";
-    if (form.password !== form.confirm) err.confirm = "Passwords do not match";
+    if (!googleUser && form.password.length < 8) err.password = "Minimum 8 characters";
+    if (!googleUser && form.password !== form.confirm) err.confirm = "Passwords do not match";
     if (!form.phone.trim()) err.phone = "Required";
     if (form.role === 'doctor') {
       if (!form.specialty.trim()) err.specialty = "Required";
@@ -251,6 +273,31 @@ export function SignUp() {
     try {
       setLoading(true);
       setApiError("");
+
+      if (googleUser) {
+        const data = await api.completeGoogleProfile({
+          date_of_birth: form.dob,
+          gender: form.gender,
+          role: form.role,
+          phone: form.phone,
+          specialty: form.specialty,
+          hospital: form.hospital,
+          experience_years: form.experience_years,
+          fee: form.fee,
+        });
+
+        localStorage.setItem("user", JSON.stringify(data.user));
+        if (data.user.role === "doctor") {
+          navigate("/login", {
+            state: {
+              info: data.message || 'Your doctor application is pending admin approval.',
+            },
+          });
+        } else {
+          navigate("/patient-dashboard");
+        }
+        return;
+      }
 
       const payload = {
         full_name: `${form.firstName} ${form.lastName}`,
@@ -322,9 +369,11 @@ export function SignUp() {
                 name="firstName"
                 label="First Name"
                 placeholder="Muhammad"
+                highlighted={Boolean(googleUser)}
+                readOnly={Boolean(googleUser)}
                 half
               />
-              <SignUpField form={form} errors={errors} onChange={ch} name="lastName" label="Last Name" placeholder="Ali" half />
+              <SignUpField form={form} errors={errors} onChange={ch} name="lastName" label="Last Name" placeholder="Ali" highlighted={Boolean(googleUser)} readOnly={Boolean(googleUser)} half />
             </div>
             <div>
               <label className="form-label block mb-1.5">Email Address</label>
@@ -334,12 +383,14 @@ export function SignUp() {
                 value={form.email}
                 onChange={ch}
                 placeholder="you@example.com"
-                className={`form-input ${errors.email ? "border-red" : ""}`}
+                readOnly={Boolean(googleUser)}
+                className={`form-input ${errors.email ? "border-red" : ""} ${googleUser ? "bg-blue-light border-blue/30" : ""}`}
               />
               {errors.email && (
                 <p className="text-[12px] text-red mt-1">{errors.email}</p>
               )}
             </div>
+            {!googleUser && (
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="form-label block mb-1.5">Password</label>
@@ -368,6 +419,7 @@ export function SignUp() {
                 )}
               </div>
             </div>
+            )}
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="form-label block mb-1.5">Phone Number</label>
@@ -452,7 +504,7 @@ export function SignUp() {
               <div className="flex-1 h-px bg-border" />
             </div>
 
-            {!googleUser ? (
+            {form.email !== '__never__' ? (
               <div id="google-signup-button" className="w-full" />
             ) : (
               <div className="space-y-4">

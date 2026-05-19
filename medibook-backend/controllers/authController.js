@@ -406,7 +406,7 @@ const completeGoogleProfile = async (req, res) => {
     return res.status(422).json({ errors: errors.array() });
   }
 
-  const { date_of_birth, gender, role, phone } = req.body;
+  const { date_of_birth, gender, role, phone, specialty, hospital, experience_years, fee, bio } = req.body;
   const userId = req.user.id;
   const safeRole = ['patient', 'doctor'].includes(role) ? role : 'patient';
 
@@ -419,12 +419,23 @@ const completeGoogleProfile = async (req, res) => {
     if (safeRole === 'doctor') {
       const [doctorRows] = await db.query('SELECT id FROM doctors WHERE user_id = ?', [userId]);
       if (doctorRows.length === 0) {
-        await db.query('INSERT INTO doctors (user_id, status) VALUES (?, ?)', [userId, 'review']);
+        await db.query(
+          `INSERT INTO doctors (user_id, specialty, hospital, experience_years, fee, gender, bio, status)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+          [userId, specialty || null, hospital || null, experience_years || null, fee || null, gender || null, bio || null, 'review']
+        );
         await notifyDoctorApplication({
           adminEmail: process.env.ADMIN_EMAIL || 'admin@medibook.com',
           doctorEmail: req.user.email,
           doctorName: req.user.full_name,
         });
+      } else {
+        await db.query(
+          `UPDATE doctors
+           SET specialty = ?, hospital = ?, experience_years = ?, fee = ?, gender = ?, bio = COALESCE(?, bio)
+           WHERE user_id = ?`,
+          [specialty || null, hospital || null, experience_years || null, fee || null, gender || null, bio || null, userId]
+        );
       }
     }
 

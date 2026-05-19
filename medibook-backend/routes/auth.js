@@ -52,6 +52,10 @@ const googleProfileRules = [
   body('gender').isIn(['Male', 'Female', 'Other']).withMessage('Gender is required.'),
   body('role').isIn(['patient', 'doctor']).withMessage('Role must be patient or doctor.'),
   body('phone').trim().notEmpty().withMessage('Phone number is required.'),
+  body('specialty').optional({ checkFalsy: true }).trim(),
+  body('hospital').optional({ checkFalsy: true }).trim(),
+  body('experience_years').optional({ checkFalsy: true }).isInt({ min: 0 }).withMessage('Experience years must be a positive number.'),
+  body('fee').optional({ checkFalsy: true }).isInt({ min: 0 }).withMessage('Fee must be a positive number.'),
 ];
 
 router.post('/register', registerRules, register);

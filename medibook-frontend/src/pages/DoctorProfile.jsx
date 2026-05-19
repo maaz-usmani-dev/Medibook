@@ -51,6 +51,7 @@ export default function DoctorProfile() {
   const [calendarMonth, setCalendarMonth] = useState(() => new Date());
 
   const calendarDays = buildCalendarDays(calendarMonth);
+  const todayKey = toDateKey(new Date());
 
   const changeMonth = (offset) => {
     setCalendarMonth(prev => new Date(prev.getFullYear(), prev.getMonth() + offset, 1));
@@ -162,7 +163,11 @@ export default function DoctorProfile() {
             {/* Info */}
             <div className="flex-1">
               <div className="flex flex-wrap gap-2 mb-3">
-                <span className="badge badge-green">● Available Today</span>
+                <span className={slots.length > 0 ? "badge badge-green" : "badge badge-amber"}>
+                  {selectedDate === todayKey
+                    ? slots.length > 0 ? 'Available today' : 'No slots today'
+                    : slots.length > 0 ? 'Slots available' : 'No slots for selected date'}
+                </span>
                 <span className="badge badge-blue"><Video size={12} /> Video Consult</span>
               </div>
               <h1 className="font-fraunces text-[36px] font-semibold text-dark leading-tight mb-2">{doctor?.name || ''}</h1>
@@ -200,9 +205,9 @@ export default function DoctorProfile() {
                 {/* Mini calendar */}
                 <div className="border border-border rounded-sm overflow-hidden mb-5">
                   <div className="flex justify-between items-center px-4 py-3 bg-blue text-white text-[14px] font-semibold">
-                    <button className="w-7 h-7 rounded-sm bg-white/20 text-white text-[16px] leading-none">‹</button>
+                    <button type="button" onClick={() => changeMonth(-1)} className="w-7 h-7 rounded-sm bg-white/20 text-white text-[16px] leading-none">&lt;</button>
                     {calendarMonth.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}
-                    <button className="w-7 h-7 rounded-sm bg-white/20 text-white text-[16px] leading-none">›</button>
+                    <button type="button" onClick={() => changeMonth(1)} className="w-7 h-7 rounded-sm bg-white/20 text-white text-[16px] leading-none">&gt;</button>
                   </div>
                   <div className="p-3">
                     <div className="grid grid-cols-7 gap-1 mb-1.5">
