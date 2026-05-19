@@ -1,4 +1,5 @@
 const db = require('../config/db');
+const { sendDoctorApprovalNotification } = require('../config/mailer');
 
 exports.getStats = async (req, res) => {
   try {
@@ -117,18 +118,22 @@ exports.updateDoctorStatus = async (req, res) => {
 
     await db.query('UPDATE doctors SET status = ? WHERE id = ?', [status, doctorId]);
 
-    if (status === 'active') {
-      await sendDoctorApprovalNotification({
-        doctorEmail: doctor.email,
-        doctorName: doctor.full_name,
-        status: 'approved',
-      });
-    } else if (status === 'inactive') {
-      await sendDoctorApprovalNotification({
-        doctorEmail: doctor.email,
-        doctorName: doctor.full_name,
-        status: 'rejected',
-      });
+    try {
+      if (status === 'active') {
+        await sendDoctorApprovalNotification({
+          doctorEmail: doctor.email,
+          doctorName: doctor.full_name,
+          status: 'approved',
+        });
+      } else if (status === 'inactive') {
+        await sendDoctorApprovalNotification({
+          doctorEmail: doctor.email,
+          doctorName: doctor.full_name,
+          status: 'rejected',
+        });
+      }
+    } catch (mailerError) {
+      console.error('Doctor approval notification failed:', mailerError.message);
     }
 
     res.json({ message: `Doctor status updated to ${status}.` });

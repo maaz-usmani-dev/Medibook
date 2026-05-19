@@ -36,6 +36,14 @@ const needsProfileCompletion = (user) => {
   return !user.date_of_birth || !user.gender || !user.role || !user.phone || (user.role === 'doctor' && !user.doctor_status);
 };
 
+const notifyDoctorApplication = async ({ adminEmail, doctorEmail, doctorName }) => {
+  try {
+    await sendDoctorApplicationNotification({ adminEmail, doctorEmail, doctorName });
+  } catch (mailerError) {
+    console.error('Doctor application notification failed:', mailerError.message);
+  }
+};
+
 // ── POST /api/auth/register ───────────────────────────────────
 const register = async (req, res) => {
   // Validate request
@@ -77,7 +85,7 @@ const register = async (req, res) => {
     if (safeRole === 'doctor') {
       await db.query('INSERT INTO doctors (user_id, status) VALUES (?, ?)', [userId, 'review']);
 
-      await sendDoctorApplicationNotification({
+      await notifyDoctorApplication({
         adminEmail: process.env.ADMIN_EMAIL || 'admin@medibook.com',
         doctorEmail: email,
         doctorName: full_name,
@@ -365,7 +373,7 @@ const completeGoogleProfile = async (req, res) => {
       const [doctorRows] = await db.query('SELECT id FROM doctors WHERE user_id = ?', [userId]);
       if (doctorRows.length === 0) {
         await db.query('INSERT INTO doctors (user_id, status) VALUES (?, ?)', [userId, 'review']);
-        await sendDoctorApplicationNotification({
+        await notifyDoctorApplication({
           adminEmail: process.env.ADMIN_EMAIL || 'admin@medibook.com',
           doctorEmail: req.user.email,
           doctorName: req.user.full_name,

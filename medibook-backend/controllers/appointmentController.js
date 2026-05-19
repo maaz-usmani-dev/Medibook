@@ -52,15 +52,19 @@ const bookAppointment = async (req, res) => {
 
     // Send confirmation email (non-blocking)
     if (details[0]) {
-      mailer.sendBookingConfirmation({
-        patientEmail: details[0].patient_email,
-        patientName:  details[0].patient_name,
-        doctorName:   details[0].doctor_name,
-        date:         appointment_date,
-        timeSlot:     time_slot,
-        type:         type || 'In-person',
-        fee,
-      });
+      mailer
+        .sendBookingConfirmation({
+          patientEmail: details[0].patient_email,
+          patientName: details[0].patient_name,
+          doctorName: details[0].doctor_name,
+          date: appointment_date,
+          timeSlot: time_slot,
+          type: type || 'In-person',
+          fee,
+        })
+        .catch((mailerError) => {
+          console.error('Booking confirmation email failed:', mailerError.message);
+        });
     }
 
     return res.status(201).json({ message: 'Appointment booked.', id: appointmentId });

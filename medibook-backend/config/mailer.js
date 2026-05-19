@@ -1,31 +1,86 @@
 const nodemailer = require('nodemailer');
 
-const transporter = nodemailer.createTransport({
-  service: process.env.MAIL_SERVICE || 'gmail',
-  auth: {
-    user: process.env.MAIL_USER || 'YOUR_EMAIL@gmail.com',
-    pass: process.env.MAIL_PASS || 'YOUR_APP_PASSWORD',
-  },
-});
+const hasOAuthConfig = () =>
+  process.env.MAIL_CLIENT_ID &&
+  process.env.MAIL_CLIENT_SECRET &&
+  process.env.MAIL_REFRESH_TOKEN;
+
+const hasPasswordConfig = () => process.env.MAIL_PASS;
+
+const isMailEnabled = () => {
+  if (process.env.MAIL_ENABLED === 'false') return false;
+  if (process.env.MAIL_ENABLED === 'true') return true;
+  return Boolean(process.env.MAIL_USER && (hasPasswordConfig() || hasOAuthConfig()));
+};
+
+let transporter;
+
+const getTransporter = () => {
+  if (!isMailEnabled()) return null;
+
+  if (!process.env.MAIL_USER) {
+    throw new Error('MAIL_USER is required when MAIL_ENABLED=true.');
+  }
+
+  if (!hasPasswordConfig() && !hasOAuthConfig()) {
+    throw new Error('Set MAIL_PASS or Gmail OAuth env vars when MAIL_ENABLED=true.');
+  }
+
+  if (!transporter) {
+    const auth = hasOAuthConfig()
+      ? {
+          type: 'OAuth2',
+          user: process.env.MAIL_USER,
+          clientId: process.env.MAIL_CLIENT_ID,
+          clientSecret: process.env.MAIL_CLIENT_SECRET,
+          refreshToken: process.env.MAIL_REFRESH_TOKEN,
+        }
+      : {
+          user: process.env.MAIL_USER,
+          pass: process.env.MAIL_PASS,
+        };
+
+    transporter = nodemailer.createTransport({
+      service: process.env.MAIL_SERVICE || 'gmail',
+      auth,
+    });
+  }
+
+  return transporter;
+};
 
 const sendEmail = async ({ to, subject, html }) => {
-  await transporter.sendMail({
-    from: process.env.MAIL_FROM || 'MediBook <no-reply@medibook.com>',
+  const activeTransporter = getTransporter();
+
+  if (!activeTransporter) {
+    console.warn(`Email skipped because mail is not configured: ${subject} -> ${to}`);
+    return false;
+  }
+
+  await activeTransporter.sendMail({
+    from: process.env.MAIL_FROM || process.env.MAIL_USER,
     to,
     subject,
     html,
   });
+
+  return true;
 };
 
-const sendBookingConfirmation = async (email, details) => {
+const sendBookingConfirmation = async (emailOrDetails, maybeDetails) => {
+  const details = maybeDetails || emailOrDetails;
+  const email = typeof emailOrDetails === 'string' ? emailOrDetails : details.patientEmail;
+
   await sendEmail({
     to: email,
     subject: 'Appointment Booked',
     html: `
       <h2>Appointment Confirmed</h2>
-      <p>Doctor: ${details.doctor}</p>
+      <p>Doctor: ${details.doctor || details.doctorName}</p>
       <p>Date: ${details.date}</p>
-      <p>Time: ${details.time}</p>
+      <p>Time: ${details.time || details.timeSlot}</p>
+      ${details.type ? `<p>Type: ${details.type}</p>` : ''}
+      ${details.fee ? `<p>Fee: ${details.fee}</p>` : ''}
     `,
   });
 };
