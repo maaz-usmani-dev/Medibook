@@ -1,0 +1,9 @@
+node_modules
+build
+dist
+.env
+*.log
+# Ignore IDE specific files
+.vscode/
+.idea/
+.codexignore

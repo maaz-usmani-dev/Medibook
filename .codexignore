@@ -1,0 +1,26 @@
+# Env files
+.env
+medibook-frontend/.env
+medibook-backend/.env
+
+# Secrets
+*.pem
+*.key
+*.p12
+*.crt
+
+# AWS credentials
+.aws/
+aws-credentials.json
+
+# Firebase/Admin
+firebase-admin.json
+
+# SSH
+.ssh/
+
+# Node junk
+node_modules/
+
+# Git
+.git/

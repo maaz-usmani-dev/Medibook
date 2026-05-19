@@ -1,0 +1,25 @@
+export const normalizeDoctor = (doctor) => ({
+  id: doctor.id || doctor._id || doctor.user_id,
+  user_id: doctor.user_id,
+  name: doctor.full_name || doctor.name || doctor.fullName,
+  specialty: doctor.specialty || doctor.specialisation || doctor.field || 'General',
+  experience: doctor.experience_years || doctor.experience || 0,
+  fee: typeof doctor.fee === 'number' ? doctor.fee : parseInt(doctor.fee) || 0,
+  gender: doctor.gender || 'Male',
+  hospital: doctor.hospital || doctor.clinic || '',
+  bio: doctor.bio || doctor.description || '',
+  email: doctor.email || '',
+  phone: doctor.phone || '',
+  // UI-friendly fields (defaults provided so existing components render)
+  title: doctor.title || `${doctor.full_name || doctor.name || 'Doctor'} — ${doctor.hospital || ''}`,
+  rating: doctor.rating ?? doctor.review_score ?? 4.5,
+  reviews: doctor.review_count ?? doctor.reviews ?? 0,
+  available: doctor.available ?? true,
+  nextSlot: doctor.next_slot || doctor.nextSlot || 'Today',
+  tags: doctor.tags || [doctor.specialty || 'General'],
+  tagColor: doctor.tagColor || 'blue',
+  photo: doctor.photo || doctor.avatar || `https://images.unsplash.com/photo-1544723795-3fb6469f5b39?w=600&h=400&fit=crop&crop=top`,
+  // DB-specific fields mapped for profile
+  languages: typeof doctor.languages === 'string' ? doctor.languages.split(',').map(s => s.trim()) : (doctor.languages || []),
+  education: doctor.qualification ? [{ degree: doctor.qualification, school: '' }] : (doctor.education || []),
+});
