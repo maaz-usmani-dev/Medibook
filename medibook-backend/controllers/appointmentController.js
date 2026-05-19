@@ -184,6 +184,15 @@ const updateStatus = async (req, res) => {
     const [rows] = await db.query('SELECT * FROM appointments WHERE id = ?', [req.params.id]);
     if (!rows[0]) return res.status(404).json({ error: 'Appointment not found.' });
 
+    if (req.user.role === 'patient') {
+      if (rows[0].patient_id !== req.user.id) {
+        return res.status(403).json({ error: 'Forbidden.' });
+      }
+      if (status !== 'cancelled') {
+        return res.status(403).json({ error: 'Patients can only cancel appointments.' });
+      }
+    }
+
     // Doctors can only update their own appointments
     if (req.user.role === 'doctor') {
       const [doc] = await db.query('SELECT id FROM doctors WHERE user_id = ?', [req.user.id]);

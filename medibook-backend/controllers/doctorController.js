@@ -114,6 +114,32 @@ exports.getDoctorById = async (req, res) => {
   }
 };
 
+exports.getMyDoctorProfile = async (req, res) => {
+  try {
+    const [doctor] = await db.query(
+      `
+      SELECT
+        d.*,
+        u.full_name,
+        u.email,
+        u.phone
+      FROM doctors d
+      JOIN users u ON d.user_id = u.id
+      WHERE d.user_id = ?
+    `,
+      [req.user.id]
+    );
+
+    if (doctor.length === 0) {
+      return res.status(404).json({ message: 'Doctor profile not found' });
+    }
+
+    res.json(doctor[0]);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
 exports.getDoctorAvailability = async (req, res) => {
   try {
     const doctorId = req.params.id;
@@ -235,4 +261,3 @@ exports.deleteDoctor = async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 };
-

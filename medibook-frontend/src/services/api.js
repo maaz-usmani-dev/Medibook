@@ -83,6 +83,13 @@ export const api = {
       credentials: true,
     }),
 
+  updateMe: async (body) =>
+    request(`${API}/auth/me`, {
+      method: 'PUT',
+      credentials: true,
+      body,
+    }),
+
   // DOCTORS
 
   getDoctors: async (filters = {}) => {
@@ -92,12 +99,24 @@ export const api = {
 
   getDoctorById: async (id) => request(`${API}/doctors/${id}`),
 
+  getMyDoctorProfile: async () =>
+    request(`${API}/doctors/me`, {
+      credentials: true,
+    }),
+
   getDoctorAvailability: async (id, date) => {
     const query = date ? `?date=${date}` : '';
     return request(`${API}/doctors/${id}/availability${query}`);
   },
 
   getAllDoctors: async () => request(`${API}/doctors`),
+
+  addDoctor: async (body) =>
+    request(`${API}/doctors`, {
+      method: 'POST',
+      credentials: true,
+      body,
+    }),
 
   // APPOINTMENTS
 

@@ -52,7 +52,20 @@ const register = async (req, res) => {
     return res.status(422).json({ errors: errors.array() });
   }
 
-  const { full_name, email, password, phone, date_of_birth, gender, role } = req.body;
+  const {
+    full_name,
+    email,
+    password,
+    phone,
+    date_of_birth,
+    gender,
+    role,
+    specialty,
+    hospital,
+    experience_years,
+    fee,
+    bio,
+  } = req.body;
 
   try {
     // Check if email already exists
@@ -83,7 +96,20 @@ const register = async (req, res) => {
 
     // If registering as doctor, create an empty doctor profile and keep status in review.
     if (safeRole === 'doctor') {
-      await db.query('INSERT INTO doctors (user_id, status) VALUES (?, ?)', [userId, 'review']);
+      await db.query(
+        `INSERT INTO doctors (user_id, specialty, hospital, experience_years, fee, gender, bio, status)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          userId,
+          specialty || null,
+          hospital || null,
+          experience_years || null,
+          fee || null,
+          gender || null,
+          bio || null,
+          'review',
+        ]
+      );
 
       await notifyDoctorApplication({
         adminEmail: process.env.ADMIN_EMAIL || 'admin@medibook.com',
@@ -174,6 +200,27 @@ const getMe = async (req, res) => {
   } catch (err) {
     console.error('getMe error:', err);
     return res.status(500).json({ error: 'Server error.' });
+  }
+};
+
+const updateMe = async (req, res) => {
+  const { full_name, phone, date_of_birth, gender } = req.body;
+
+  try {
+    await db.query(
+      'UPDATE users SET full_name = ?, phone = ?, date_of_birth = ?, gender = ? WHERE id = ?',
+      [full_name || null, phone || null, date_of_birth || null, gender || null, req.user.id]
+    );
+
+    const [rows] = await db.query(
+      'SELECT id, full_name, email, phone, date_of_birth, gender, role, created_at FROM users WHERE id = ?',
+      [req.user.id]
+    );
+
+    return res.json(rows[0]);
+  } catch (err) {
+    console.error('updateMe error:', err);
+    return res.status(500).json({ error: 'Unable to update profile.' });
   }
 };
 
@@ -413,6 +460,7 @@ module.exports = {
   register,
   login,
   getMe,
+  updateMe,
   logout,
   forgotPassword,
   resetPassword,

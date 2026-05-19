@@ -102,7 +102,7 @@ exports.getPendingDoctors = async (req, res) => {
 exports.updateDoctorStatus = async (req, res) => {
   try {
     const doctorId = req.params.id;
-    const { status } = req.body;
+    const status = req.body.status === 'rejected' ? 'inactive' : req.body.status;
     if (!['active', 'inactive', 'review'].includes(status)) {
       return res.status(400).json({ message: 'Invalid doctor status.' });
     }

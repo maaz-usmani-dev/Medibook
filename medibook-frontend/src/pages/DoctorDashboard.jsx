@@ -6,7 +6,6 @@ import { api } from '../services/api';
 
 const doc = {
   name: 'Dr. Sarah Ahmed', initials: 'SA', role: 'Cardiologist',
-  img: 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=84&h=84&fit=crop&crop=face',
 };
 
 const sidebarLinks = [
@@ -44,15 +43,17 @@ export default function DoctorDashboard() {
   const [availability, setAvailability] = useState([]);
   const [newSlot, setNewSlot] = useState({ day: 'Mon', time: '' });
   const [doctorId, setDoctorId] = useState(null);
+  const [doctorProfile, setDoctorProfile] = useState(null);
   const [loadingAppointments, setLoadingAppointments] = useState(true);
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [error, setError] = useState(null);
   const [actionLoading, setActionLoading] = useState(false);
 
   const storedUser = typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('user') || '{}') : {};
-  const doctorName = storedUser.full_name || doc.name;
-  const doctorRoleLabel = storedUser.role === 'doctor' ? 'Doctor' : doc.role;
+  const doctorName = doctorProfile?.full_name || storedUser.full_name || doc.name;
+  const doctorRoleLabel = doctorProfile?.specialty || (storedUser.role === 'doctor' ? 'Doctor' : doc.role);
   const doctorFirstName = doctorName.split(' ')[1] || doctorName.split(' ')[0];
+  const doctorInitials = doctorName.split(' ').filter(Boolean).map(part => part[0]).join('').slice(0, 2).toUpperCase() || doc.initials;
 
   const fetchAppointments = async () => {
     setLoadingAppointments(true);
@@ -87,6 +88,12 @@ export default function DoctorDashboard() {
 
   useEffect(() => {
     fetchAppointments();
+    api.getMyDoctorProfile()
+      .then(data => {
+        setDoctorProfile(data);
+        setDoctorId(data.id);
+      })
+      .catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -152,6 +159,17 @@ export default function DoctorDashboard() {
     [appointments]
   );
 
+  const dashboardLinks = useMemo(() => sidebarLinks.map(group => ({
+    ...group,
+    items: group.items.map(item => item.label === 'Dashboard'
+      ? { ...item, onClick: () => setTab('dashboard'), active: tab === 'dashboard' }
+      : item.label === 'My Appointments' || item.label === 'Calendar'
+      ? { ...item, onClick: () => setTab('appointments'), active: tab === 'appointments', badge: item.label === 'My Appointments' ? String(upcomingAppointments.length) : undefined }
+      : item.label === 'Manage Availability'
+      ? { ...item, onClick: () => setTab('availability'), active: tab === 'availability' }
+      : item)
+  })), [tab, upcomingAppointments.length]);
+
   const stats = useMemo(() => {
     const today = new Date().toISOString().slice(0, 10);
     const todays = appointments.filter(a => a.appointment_date === today).length;
@@ -177,7 +195,7 @@ export default function DoctorDashboard() {
 
   return (
     <div className="flex min-h-screen bg-bg">
-      <Sidebar links={sidebarLinks} role={doc.role} user={{ name: doc.name, initials: doc.initials, img: doc.img }} />
+      <Sidebar links={dashboardLinks} role={doctorRoleLabel} user={{ name: doctorName, initials: doctorInitials }} />
 
       <div className="flex-1 flex flex-col min-w-0">
         <div className="bg-white border-b border-border px-8 h-[68px] flex items-center justify-between sticky top-0 z-10">
@@ -188,7 +206,7 @@ export default function DoctorDashboard() {
               <span className="absolute top-[7px] right-[7px] w-2 h-2 bg-red rounded-full border-2 border-white" />
             </button>
             <div className="flex items-center gap-2.5 cursor-pointer px-2.5 py-1.5 rounded-sm hover:bg-bg transition-colors">
-              <img src={doc.img} alt={doctorName} className="w-9 h-9 rounded-full object-cover" />
+              <div className="w-9 h-9 rounded-full bg-blue-light text-blue grid place-items-center font-semibold text-sm">{doctorInitials}</div>
               <span className="text-[14px] font-semibold text-dark">{doctorName} ▾</span>
             </div>
           </div>

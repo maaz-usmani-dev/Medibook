@@ -34,15 +34,30 @@ export default function Sidebar({ links, role, user }) {
             )}
             {group.items.map(item => {
               const Icon = item.icon;
-              const active = location.pathname === item.to;
-              return (
-                <Link key={item.to} to={item.to}
-                  className={`sidebar-item ${active ? 'active' : ''}`}>
+              const active = item.active ?? location.pathname === item.to;
+              const content = (
+                <>
                   <Icon size={18} weight={active ? 'fill' : 'regular'} />
                   <span className="flex-1">{item.label}</span>
                   {item.badge && (
                     <span className="bg-red text-white text-[11px] font-bold px-[7px] py-px rounded-full">{item.badge}</span>
                   )}
+                </>
+              );
+
+              if (item.onClick) {
+                return (
+                  <button key={item.label} type="button" onClick={item.onClick}
+                    className={`sidebar-item w-full text-left ${active ? 'active' : ''}`}>
+                    {content}
+                  </button>
+                );
+              }
+
+              return (
+                <Link key={item.to} to={item.to}
+                  className={`sidebar-item ${active ? 'active' : ''}`}>
+                  {content}
                 </Link>
               );
             })}

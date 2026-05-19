@@ -53,6 +53,25 @@ const AuthRight = ({ img, quote }) => (
   </div>
 );
 
+function SignUpField({ form, errors, onChange, name, label, type = "text", placeholder, half }) {
+  return (
+    <div className={half ? "" : "col-span-2"}>
+      <label className="form-label block mb-1.5">{label}</label>
+      <input
+        type={type}
+        name={name}
+        value={form[name]}
+        onChange={onChange}
+        placeholder={placeholder}
+        className={`form-input ${errors[name] ? "border-red" : ""}`}
+      />
+      {errors[name] && (
+        <p className="text-[12px] text-red mt-1">{errors[name]}</p>
+      )}
+    </div>
+  );
+}
+
 const loadGoogleScript = () => {
   return new Promise((resolve) => {
     if (window.google?.accounts?.id) {
@@ -106,6 +125,10 @@ export function SignUp() {
     dob: "",
     gender: "Male",
     role: "patient",
+    specialty: "",
+    hospital: "",
+    experience_years: "",
+    fee: "",
   });
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
@@ -204,6 +227,10 @@ export function SignUp() {
     if (form.password.length < 8) err.password = "Minimum 8 characters";
     if (form.password !== form.confirm) err.confirm = "Passwords do not match";
     if (!form.phone.trim()) err.phone = "Required";
+    if (form.role === 'doctor') {
+      if (!form.specialty.trim()) err.specialty = "Required";
+      if (!form.hospital.trim()) err.hospital = "Required";
+    }
     return err;
   };
 
@@ -231,6 +258,13 @@ export function SignUp() {
         date_of_birth: form.dob,
       };
 
+      if (form.role === 'doctor') {
+        payload.specialty = form.specialty;
+        payload.hospital = form.hospital;
+        payload.experience_years = form.experience_years;
+        payload.fee = form.fee;
+      }
+
       const data = await api.register(payload);
       setApiError("");
 
@@ -252,23 +286,6 @@ export function SignUp() {
     }
   };
 
-  const Field = ({ name, label, type = "text", placeholder, half }) => (
-    <div className={half ? "" : "col-span-2"}>
-      <label className="form-label block mb-1.5">{label}</label>
-      <input
-        type={type}
-        name={name}
-        value={form[name]}
-        onChange={ch}
-        placeholder={placeholder}
-        className={`form-input ${errors[name] ? "border-red" : ""}`}
-      />
-      {errors[name] && (
-        <p className="text-[12px] text-red mt-1">{errors[name]}</p>
-      )}
-    </div>
-  );
-
   return (
     <div className="min-h-screen grid lg:grid-cols-2">
       {/* Left */}
@@ -289,13 +306,16 @@ export function SignUp() {
               </div>
             )}
             <div className="grid grid-cols-2 gap-4">
-              <Field
+              <SignUpField
+                form={form}
+                errors={errors}
+                onChange={ch}
                 name="firstName"
                 label="First Name"
                 placeholder="Muhammad"
                 half
               />
-              <Field name="lastName" label="Last Name" placeholder="Ali" half />
+              <SignUpField form={form} errors={errors} onChange={ch} name="lastName" label="Last Name" placeholder="Ali" half />
             </div>
             <div>
               <label className="form-label block mb-1.5">Email Address</label>
@@ -397,6 +417,15 @@ export function SignUp() {
                 ))}
               </div>
             </div>
+
+            {form.role === 'doctor' && (
+              <div className="grid grid-cols-2 gap-4">
+                <SignUpField form={form} errors={errors} onChange={ch} name="specialty" label="Specialty" placeholder="Cardiology" half />
+                <SignUpField form={form} errors={errors} onChange={ch} name="hospital" label="Hospital / Clinic" placeholder="City Hospital" half />
+                <SignUpField form={form} errors={errors} onChange={ch} name="experience_years" label="Experience Years" type="number" placeholder="5" half />
+                <SignUpField form={form} errors={errors} onChange={ch} name="fee" label="Consultation Fee" type="number" placeholder="1500" half />
+              </div>
+            )}
 
             <button
               type="submit"

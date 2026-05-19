@@ -27,8 +27,8 @@ router.post('/',              verifyToken, requireRole('patient'), bookRules, bo
 router.get('/my',             verifyToken, requireRole('patient', 'doctor'), getMyAppointments);
 // Specific appointment details
 router.get('/:id',             verifyToken, requireRole('patient', 'doctor', 'admin'), getAppointmentById);
-// Doctor or admin updates status
-router.put('/:id/status',     verifyToken, requireRole('doctor', 'admin'),   updateStatus);
+// Patient can cancel; doctor or admin can manage status
+router.put('/:id/status',     verifyToken, requireRole('patient', 'doctor', 'admin'),   updateStatus);
 // Patient reschedules
 router.put('/:id/reschedule', verifyToken, requireRole('patient'),           rescheduleAppointment);
 

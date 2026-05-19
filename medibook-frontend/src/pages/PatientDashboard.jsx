@@ -7,11 +7,27 @@ import {
 import Sidebar from '../components/Sidebar';
 import { api } from '../services/api';
 
-const user = {
-  name: 'Muhammad Maaz', initials: 'MM', role: 'Patient Account',
-  img: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=84&h=84&fit=crop&crop=face',
-  email: 'maaz@example.com', phone: '+92-300-000-0000', dob: '2000-01-14', gender: 'Male',
-};
+const fallbackImg = 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=84&h=84&fit=crop&crop=face';
+
+const initialsFromName = (name = '') =>
+  name
+    .split(' ')
+    .filter(Boolean)
+    .map(part => part[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase() || 'U';
+
+const mapProfile = (data = {}) => ({
+  name: data.full_name || data.name || 'Patient',
+  initials: initialsFromName(data.full_name || data.name),
+  role: 'Patient Account',
+  img: fallbackImg,
+  email: data.email || '',
+  phone: data.phone || '',
+  dob: data.date_of_birth ? String(data.date_of_birth).slice(0, 10) : '',
+  gender: data.gender || '',
+});
 
 const sidebarLinks = [
   { label: 'Main', items: [
@@ -39,11 +55,15 @@ const TypeBadge = ({ t }) => t === 'Video'
 export default function PatientDashboard() {
   const [tab, setTab]         = useState('dashboard');
   const [editing, setEditing] = useState(false);
-  const [profile, setProfile] = useState(user);
+  const [profile, setProfile] = useState(() => {
+    const storedUser = typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('user') || '{}') : {};
+    return mapProfile(storedUser);
+  });
   const [appointments, setAppointments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [actionLoading, setActionLoading] = useState(false);
+  const [profileSaving, setProfileSaving] = useState(false);
 
   const fetchAppointments = async () => {
     setLoading(true);
@@ -60,6 +80,9 @@ export default function PatientDashboard() {
 
   useEffect(() => {
     fetchAppointments();
+    api.getMe()
+      .then(data => setProfile(mapProfile(data)))
+      .catch(() => {});
   }, []);
 
   const handleCancel = async (id) => {
@@ -94,6 +117,31 @@ export default function PatientDashboard() {
     }
   };
 
+  const handleProfileSave = async () => {
+    setProfileSaving(true);
+    try {
+      const updated = await api.updateMe({
+        full_name: profile.name,
+        phone: profile.phone,
+        date_of_birth: profile.dob,
+        gender: profile.gender,
+      });
+      const mapped = mapProfile(updated);
+      setProfile(mapped);
+      localStorage.setItem('user', JSON.stringify({
+        id: updated.id,
+        full_name: updated.full_name,
+        email: updated.email,
+        role: updated.role,
+      }));
+      setEditing(false);
+    } catch (err) {
+      window.alert(err.message || 'Unable to save profile.');
+    } finally {
+      setProfileSaving(false);
+    }
+  };
+
   const upcoming = useMemo(() =>
     appointments.filter(a => ['confirmed', 'pending'].includes(a.status)),
     [appointments]
@@ -113,7 +161,20 @@ export default function PatientDashboard() {
 
   return (
     <div className="flex min-h-screen bg-bg">
-      <Sidebar links={sidebarLinks} role={user.role} user={{ name: user.name, initials: user.initials, img: user.img }} />
+      <Sidebar
+        links={sidebarLinks.map(group => ({
+          ...group,
+          items: group.items.map(item => item.label === 'Dashboard'
+            ? { ...item, onClick: () => setTab('dashboard'), active: tab === 'dashboard' }
+            : item.label === 'Appointments'
+            ? { ...item, onClick: () => setTab('appointments'), active: tab === 'appointments', badge: String(upcoming.length) }
+            : item.label === 'My Profile'
+            ? { ...item, onClick: () => setTab('profile'), active: tab === 'profile' }
+            : item)
+        }))}
+        role={profile.role}
+        user={{ name: profile.name, initials: profile.initials, img: profile.img }}
+      />
 
       <div className="flex-1 flex flex-col min-w-0">
         {/* Topbar */}
@@ -125,8 +186,8 @@ export default function PatientDashboard() {
               <span className="absolute top-[7px] right-[7px] w-2 h-2 bg-red rounded-full border-2 border-white" />
             </button>
             <div className="flex items-center gap-2.5 cursor-pointer px-2.5 py-1.5 rounded-sm hover:bg-bg transition-colors">
-              <img src={user.img} alt={user.name} className="w-9 h-9 rounded-full object-cover" />
-              <span className="text-[14px] font-semibold text-dark">Maaz ▾</span>
+              <img src={profile.img} alt={profile.name} className="w-9 h-9 rounded-full object-cover" />
+              <span className="text-[14px] font-semibold text-dark">{profile.name}</span>
             </div>
           </div>
         </div>
@@ -134,7 +195,7 @@ export default function PatientDashboard() {
         <div className="p-8 flex-1">
           {/* Greeting */}
           <div className="mb-7">
-            <h1 className="font-fraunces text-[28px] font-semibold text-dark">Good morning, Maaz 👋</h1>
+            <h1 className="font-fraunces text-[28px] font-semibold text-dark">Good morning, {profile.name.split(' ')[0]}</h1>
             <p className="text-[15px] text-muted mt-1">Here's an overview of your health activity.</p>
           </div>
 
@@ -300,14 +361,15 @@ export default function PatientDashboard() {
             <div className="card-static p-7 max-w-2xl animate-fade-in">
               <div className="flex items-center justify-between mb-6">
                 <h3 className="text-[17px] font-bold text-dark">My Profile</h3>
-                <button onClick={() => setEditing(!editing)}
+                <button onClick={editing ? handleProfileSave : () => setEditing(true)}
+                  disabled={profileSaving}
                   className={`flex items-center gap-2 px-4 py-2 rounded-sm text-[13px] font-semibold transition-all ${editing ? 'bg-green text-white' : 'border border-blue text-blue hover:bg-blue-light'}`}>
-                  {editing ? <><FloppyDisk size={14}/> Save Changes</> : <><PencilSimple size={14}/> Edit Profile</>}
+                  {editing ? <><FloppyDisk size={14}/> {profileSaving ? 'Saving...' : 'Save Changes'}</> : <><PencilSimple size={14}/> Edit Profile</>}
                 </button>
               </div>
 
               <div className="flex items-center gap-5 mb-8 pb-7 border-b border-border">
-                <img src={user.img} alt={user.name} className="w-16 h-16 rounded-[14px] object-cover border-2 border-border" />
+                <img src={profile.img} alt={profile.name} className="w-16 h-16 rounded-[14px] object-cover border-2 border-border" />
                 <div>
                   <p className="font-fraunces text-[20px] font-semibold text-dark">{profile.name}</p>
                   <p className="text-[14px] text-muted">{profile.email}</p>
@@ -340,3 +402,4 @@ export default function PatientDashboard() {
     </div>
   );
 }
+

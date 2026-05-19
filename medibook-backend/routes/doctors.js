@@ -4,6 +4,7 @@ const router = express.Router();
 const {
   getAllDoctors,
   getDoctorById,
+  getMyDoctorProfile,
   getDoctorAvailability,
   addDoctor,
   updateDoctor,
@@ -14,6 +15,7 @@ const verifyToken = require('../middleware/auth');
 const requireRole = require('../middleware/role');
 
 router.get('/', getAllDoctors);
+router.get('/me', verifyToken, requireRole('doctor'), getMyDoctorProfile);
 router.get('/:id', getDoctorById);
 router.get('/:id/availability', getDoctorAvailability);
 

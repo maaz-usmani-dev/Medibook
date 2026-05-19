@@ -9,6 +9,7 @@ const {
   register,
   login,
   getMe,
+  updateMe,
   logout,
   forgotPassword,
   resetPassword,
@@ -22,6 +23,10 @@ const registerRules = [
   body('email').isEmail().withMessage('Valid email is required.').normalizeEmail(),
   body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters.'),
   body('role').optional().isIn(['patient', 'doctor']).withMessage('Role must be patient or doctor.'),
+  body('specialty').if(body('role').equals('doctor')).trim().notEmpty().withMessage('Specialty is required for doctors.'),
+  body('hospital').if(body('role').equals('doctor')).trim().notEmpty().withMessage('Hospital or clinic is required for doctors.'),
+  body('experience_years').optional({ checkFalsy: true }).isInt({ min: 0 }).withMessage('Experience years must be a positive number.'),
+  body('fee').optional({ checkFalsy: true }).isInt({ min: 0 }).withMessage('Fee must be a positive number.'),
 ];
 
 const loginRules = [
@@ -57,5 +62,6 @@ router.post('/reset-password', resetPasswordRules, resetPassword);
 router.post('/google-login', googleLoginRules, googleLogin);
 router.put('/google-complete-profile', verifyToken, googleProfileRules, completeGoogleProfile);
 router.get('/me',        verifyToken,   getMe);
+router.put('/me',        verifyToken,   updateMe);
 
 module.exports = router;
