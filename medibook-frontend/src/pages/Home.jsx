@@ -1,13 +1,15 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
-  MagnifyingGlass, Star, ArrowRight, Heart, Brain,
-  Bone, Baby, Ear, Eye, Stethoscope, Shield, Bandaids
+  MagnifyingGlass, Star, Heart, Brain,
+  Bone, Baby, Ear, Eye, Stethoscope, Bandaids
 } from '@phosphor-icons/react';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import DoctorCard from '../components/DoctorCard';
-import { doctors, specialties, testimonials } from '../data/mockData';
+import { specialties, testimonials } from '../data/mockData';
+import { api } from '../services/api';
+import { normalizeDoctor } from '../utils/normalizeDoctor';
 
 const specIcons = {
   Cardiology:   Heart,
@@ -41,6 +43,23 @@ const steps = [
 export default function Home() {
   const navigate = useNavigate();
   const [search, setSearch] = useState({ q: '', city: '', date: '' });
+  const [featuredDoctors, setFeaturedDoctors] = useState([]);
+
+  useEffect(() => {
+    let active = true;
+    api.getDoctors()
+      .then(data => {
+        if (!active) return;
+        const mapped = (Array.isArray(data) ? data : data.doctors || []).map(normalizeDoctor);
+        setFeaturedDoctors(mapped.slice(0, 3));
+      })
+      .catch(() => {
+        if (active) setFeaturedDoctors([]);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   return (
     <div className="min-h-screen">
@@ -98,14 +117,12 @@ export default function Home() {
 
             <div className="flex items-center gap-4 text-white/55 text-[13px]">
               <div className="flex">
-                {['https://images.unsplash.com/photo-1607990281513-2c110a25bd8c?w=64&h=64&fit=crop&crop=face',
-                  'https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?w=64&h=64&fit=crop&crop=face',
-                  'https://images.unsplash.com/photo-1594824476967-48c8b964273f?w=64&h=64&fit=crop&crop=face',
-                  'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=64&h=64&fit=crop&crop=face',
-                ].map((src, i) => (
-                  <img key={i} src={src} alt="patient"
-                    className="w-8 h-8 rounded-full border-2 border-navy object-cover"
-                    style={{ marginLeft: i > 0 ? '-8px' : '0' }} />
+                {['A', 'S', 'M', 'H'].map((initial, i) => (
+                  <div key={initial}
+                    className="w-8 h-8 rounded-full border-2 border-navy bg-blue-light text-blue grid place-items-center text-[12px] font-bold"
+                    style={{ marginLeft: i > 0 ? '-8px' : '0' }}>
+                    {initial}
+                  </div>
                 ))}
               </div>
               <span>Trusted by <strong className="text-[#7EC8F5]">50,000+</strong> patients across Pakistan</span>
@@ -116,7 +133,7 @@ export default function Home() {
           <div className="hidden lg:flex justify-center relative animate-fade-up delay-200">
             <div className="w-full max-w-[520px] rounded-[20px_20px_0_0] overflow-hidden relative">
               <img src="https://images.unsplash.com/photo-1651008376811-b90baee60c1f?w=800&h=700&fit=crop&crop=top"
-                alt="Doctor consulting with patient" className="w-full h-[480px] object-cover object-top" />
+                alt="Doctor consulting with patient" className="w-full h-[480px] object-cover object-top" fetchpriority="high" decoding="async" />
             </div>
             {/* Float card 1 */}
             <div className="absolute top-8 -right-5 bg-white rounded-[14px] px-[18px] py-3.5 shadow-lg min-w-[180px]">
@@ -231,9 +248,13 @@ export default function Home() {
             </div>
             <Link to="/doctors" className="btn-ghost hidden sm:inline-flex">View All Doctors</Link>
           </div>
-          <div className="grid md:grid-cols-3 gap-6">
-            {doctors.slice(0, 3).map(d => <DoctorCard key={d.id} doctor={d} />)}
-          </div>
+          {featuredDoctors.length > 0 ? (
+            <div className="grid md:grid-cols-3 gap-6">
+              {featuredDoctors.map(d => <DoctorCard key={d.id} doctor={d} />)}
+            </div>
+          ) : (
+            <div className="card p-10 text-center text-muted">No doctors are available yet.</div>
+          )}
         </div>
       </section>
 

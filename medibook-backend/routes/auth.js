@@ -3,6 +3,7 @@
 // ============================================================
 const express    = require('express');
 const { body }   = require('express-validator');
+const multer     = require('multer');
 const router      = express.Router();
 const verifyToken  = require('../middleware/auth');
 const {
@@ -10,12 +11,24 @@ const {
   login,
   getMe,
   updateMe,
+  updateAvatar,
   logout,
   forgotPassword,
   resetPassword,
   googleLogin,
   completeGoogleProfile,
 } = require('../controllers/authController');
+
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 2 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    if (!file.mimetype.startsWith('image/')) {
+      return cb(new Error('Only image uploads are allowed.'));
+    }
+    cb(null, true);
+  },
+});
 
 // Validation rules
 const registerRules = [
@@ -67,5 +80,6 @@ router.post('/google-login', googleLoginRules, googleLogin);
 router.put('/google-complete-profile', verifyToken, googleProfileRules, completeGoogleProfile);
 router.get('/me',        verifyToken,   getMe);
 router.put('/me',        verifyToken,   updateMe);
+router.put('/me/avatar', verifyToken, upload.single('avatar'), updateAvatar);
 
 module.exports = router;

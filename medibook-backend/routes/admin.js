@@ -8,6 +8,7 @@ const {
   getStats,
   getAllUsers,
   toggleBlock,
+  createDoctorAccount,
   getPendingDoctors,
   updateDoctorStatus,
   getAllAppointments
@@ -18,6 +19,7 @@ router.use(requireRole('admin'));
 
 router.get('/stats', getStats);
 router.get('/users', getAllUsers);
+router.post('/doctors', createDoctorAccount);
 router.get('/doctors/pending', getPendingDoctors);
 router.put('/doctors/:id/status', updateDoctorStatus);
 router.put('/users/:id/block', toggleBlock);

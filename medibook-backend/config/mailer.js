@@ -110,6 +110,22 @@ const sendDoctorApprovalNotification = async ({ doctorEmail, doctorName, status 
   });
 };
 
+const sendDoctorAccountCreatedEmail = async ({ doctorEmail, doctorName, password, loginUrl }) => {
+  await sendEmail({
+    to: doctorEmail,
+    subject: 'Your MediBook Doctor Account',
+    html: `
+      <h2>Your Doctor Account Is Ready</h2>
+      <p>Hi ${doctorName},</p>
+      <p>An admin created your MediBook doctor account.</p>
+      <p><strong>Email:</strong> ${doctorEmail}</p>
+      <p><strong>Temporary password:</strong> ${password}</p>
+      <p><a href="${loginUrl}" target="_blank">Sign in to MediBook</a></p>
+      <p>Please sign in and update your password as soon as possible.</p>
+    `,
+  });
+};
+
 const sendPasswordResetEmail = async ({ to, fullName, resetUrl }) => {
   await sendEmail({
     to,
@@ -128,5 +144,6 @@ module.exports = {
   sendBookingConfirmation,
   sendDoctorApplicationNotification,
   sendDoctorApprovalNotification,
+  sendDoctorAccountCreatedEmail,
   sendPasswordResetEmail,
 };

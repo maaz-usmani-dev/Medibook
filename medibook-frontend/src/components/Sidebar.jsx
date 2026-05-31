@@ -1,9 +1,23 @@
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { SignOut } from '@phosphor-icons/react';
+import { api } from '../services/api';
 // import Logo from './Logo';
 
 export default function Sidebar({ links, role, user }) {
   const location = useLocation();
+  const navigate = useNavigate();
+
+  const handleLogout = async () => {
+    try {
+      await api.logout();
+    } catch (_) {
+      // Local logout should still proceed if the session already expired.
+    } finally {
+      localStorage.removeItem('user');
+      window.dispatchEvent(new Event('medibook:user-updated'));
+      navigate('/login');
+    }
+  };
 
   return (
     <aside className="w-64 min-h-screen bg-dark flex flex-col flex-shrink-0">
@@ -66,10 +80,10 @@ export default function Sidebar({ links, role, user }) {
       </nav>
 
       <div className="px-3 py-4 border-t border-white/[0.06]">
-        <Link to="/login" className="sidebar-item hover:bg-red/20 hover:text-red/80">
+        <button type="button" onClick={handleLogout} className="sidebar-item w-full hover:bg-red/20 hover:text-red/80">
           <SignOut size={18} />
           Logout
-        </Link>
+        </button>
       </div>
     </aside>
   );

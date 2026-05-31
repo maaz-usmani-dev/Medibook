@@ -1,7 +1,7 @@
-import { useState, useEffect, useMemo } from 'react';
-import { Link } from 'react-router-dom';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { SquaresFour, CalendarBlank, Clock, User, Bell, Plus, Check, X } from '@phosphor-icons/react';
 import Sidebar from '../components/Sidebar';
+import Avatar from '../components/Avatar';
 import { api } from '../services/api';
 
 const doc = {
@@ -53,10 +53,11 @@ export default function DoctorDashboard() {
   const storedUser = typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('user') || '{}') : {};
   const doctorName = doctorProfile?.full_name || storedUser.full_name || doc.name;
   const doctorRoleLabel = doctorProfile?.specialty || (storedUser.role === 'doctor' ? 'Doctor' : doc.role);
+  const doctorAvatar = doctorProfile?.avatar_url || storedUser.avatar_url || '';
   const doctorFirstName = doctorName.split(' ')[1] || doctorName.split(' ')[0];
   const doctorInitials = doctorName.split(' ').filter(Boolean).map(part => part[0]).join('').slice(0, 2).toUpperCase() || doc.initials;
 
-  const fetchAppointments = async () => {
+  const fetchAppointments = useCallback(async () => {
     setLoadingAppointments(true);
     setError(null);
 
@@ -72,7 +73,7 @@ export default function DoctorDashboard() {
     } finally {
       setLoadingAppointments(false);
     }
-  };
+  }, [doctorId]);
 
   const fetchAvailability = async (id) => {
     if (!id) return;
@@ -95,7 +96,7 @@ export default function DoctorDashboard() {
         setDoctorId(data.id);
       })
       .catch(() => {});
-  }, []);
+  }, [fetchAppointments]);
 
   useEffect(() => {
     if (doctorId) {
@@ -168,8 +169,31 @@ export default function DoctorDashboard() {
       ? { ...item, onClick: () => setTab('appointments'), active: tab === 'appointments', badge: item.label === 'My Appointments' ? String(upcomingAppointments.length) : undefined }
       : item.label === 'Manage Availability'
       ? { ...item, onClick: () => setTab('availability'), active: tab === 'availability' }
+      : item.label === 'My Profile'
+      ? { ...item, onClick: () => setTab('profile'), active: tab === 'profile' }
       : item)
   })), [tab, upcomingAppointments.length]);
+
+  const handleAvatarChange = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    try {
+      const updated = await api.updateAvatar(file);
+      setDoctorProfile(prev => ({ ...(prev || {}), avatar_url: updated.avatar_url, full_name: updated.full_name }));
+      localStorage.setItem('user', JSON.stringify({
+        id: updated.id,
+        full_name: updated.full_name,
+        email: updated.email,
+        role: updated.role,
+        avatar_url: updated.avatar_url,
+      }));
+      window.dispatchEvent(new Event('medibook:user-updated'));
+    } catch (err) {
+      window.alert(err.message || 'Unable to upload avatar.');
+    } finally {
+      event.target.value = '';
+    }
+  };
 
   const stats = useMemo(() => {
     const today = new Date().toISOString().slice(0, 10);
@@ -209,7 +233,7 @@ export default function DoctorDashboard() {
 
   return (
     <div className="flex min-h-screen bg-bg">
-      <Sidebar links={dashboardLinks} role={doctorRoleLabel} user={{ name: doctorName, initials: doctorInitials }} />
+      <Sidebar links={dashboardLinks} role={doctorRoleLabel} user={{ name: doctorName, initials: doctorInitials, img: doctorAvatar }} />
 
       <div className="flex-1 flex flex-col min-w-0">
         <div className="bg-white border-b border-border px-8 h-[68px] flex items-center justify-between sticky top-0 z-10">
@@ -236,7 +260,7 @@ export default function DoctorDashboard() {
               </div>
             )}
             <div className="flex items-center gap-2.5 cursor-pointer px-2.5 py-1.5 rounded-sm hover:bg-bg transition-colors">
-              <div className="w-9 h-9 rounded-full bg-blue-light text-blue grid place-items-center font-semibold text-sm">{doctorInitials}</div>
+              <Avatar src={doctorAvatar} name={doctorName} className="w-9 h-9" />
               <span className="text-[14px] font-semibold text-dark">{doctorName} ▾</span>
             </div>
           </div>
@@ -249,7 +273,7 @@ export default function DoctorDashboard() {
           </div>
 
           <div className="flex gap-1 bg-white border border-border rounded-sm p-1 w-fit mb-7">
-            {[['dashboard','Dashboard'],['appointments','Appointments'],['availability','Availability']].map(([t,l]) => (
+            {[['dashboard','Dashboard'],['appointments','Appointments'],['availability','Availability'],['profile','Profile']].map(([t,l]) => (
               <button key={t} onClick={() => setTab(t)}
                 className={`px-5 py-2 rounded-sm text-[14px] font-medium transition-all ${t===tab?'bg-blue text-white shadow-sm':'text-slate hover:text-dark'}`}>
                 {l}
@@ -259,6 +283,7 @@ export default function DoctorDashboard() {
 
           {tab === 'dashboard' && (
             <div className="space-y-7 animate-fade-in">
+              {error && <div className="card p-4 text-red text-[14px]">{error}</div>}
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-5">
                 {stats.map(s => (
                   <div key={s.label} className="card-static p-6">
@@ -280,7 +305,11 @@ export default function DoctorDashboard() {
                 <table className="data-table">
                   <thead><tr><th>Patient</th><th>Time</th><th>Type</th><th>Reason</th><th>Status</th><th>Action</th></tr></thead>
                   <tbody>
-                    {upcomingAppointments.map(a => (
+                    {loadingAppointments ? (
+                      <tr><td colSpan="6" className="text-center text-muted py-8">Loading appointments...</td></tr>
+                    ) : upcomingAppointments.length === 0 ? (
+                      <tr><td colSpan="6" className="text-center text-muted py-8">No active appointments.</td></tr>
+                    ) : upcomingAppointments.map(a => (
                       <tr key={a.id}>
                         <td>
                           <div className="flex items-center gap-3">
@@ -304,10 +333,10 @@ export default function DoctorDashboard() {
                         <td>
                           {a.status === 'pending'
                             ? <div className="flex gap-2">
-                                <button onClick={() => handleAppointmentStatus(a.id, 'confirmed')} className="action-btn action-btn-green flex items-center gap-1"><Check size={12} weight="bold"/>Confirm</button>
-                                <button onClick={() => handleAppointmentStatus(a.id, 'cancelled')} className="action-btn action-btn-red flex items-center gap-1"><X size={12} weight="bold"/>Cancel</button>
+                                <button onClick={() => handleAppointmentStatus(a.id, 'confirmed')} disabled={actionLoading} className="action-btn action-btn-green flex items-center gap-1"><Check size={12} weight="bold"/>Confirm</button>
+                                <button onClick={() => handleAppointmentStatus(a.id, 'cancelled')} disabled={actionLoading} className="action-btn action-btn-red flex items-center gap-1"><X size={12} weight="bold"/>Cancel</button>
                               </div>
-                            : <button onClick={() => handleAppointmentStatus(a.id, 'completed')} className="action-btn action-btn-blue">Start</button>}
+                            : <button onClick={() => handleAppointmentStatus(a.id, 'completed')} disabled={actionLoading} className="action-btn action-btn-blue">Start</button>}
                         </td>
                       </tr>
                     ))}
@@ -322,7 +351,13 @@ export default function DoctorDashboard() {
               <table className="data-table">
                 <thead><tr><th>ID</th><th>Patient</th><th>Time</th><th>Type</th><th>Reason</th><th>Status</th><th>Action</th></tr></thead>
                 <tbody>
-                  {appointments.map(a => (
+                  {loadingAppointments ? (
+                    <tr><td colSpan="7" className="text-center text-muted py-8">Loading appointments...</td></tr>
+                  ) : error ? (
+                    <tr><td colSpan="7" className="text-center text-red py-8">{error}</td></tr>
+                  ) : appointments.length === 0 ? (
+                    <tr><td colSpan="7" className="text-center text-muted py-8">No appointments yet.</td></tr>
+                  ) : appointments.map(a => (
                     <tr key={a.id}>
                       <td className="font-mono text-[12px] text-muted">{a.id}</td>
                       <td>
@@ -344,10 +379,10 @@ export default function DoctorDashboard() {
                       <td>
                         {a.status === 'pending'
                           ? <div className="flex gap-2">
-                              <button onClick={() => handleAppointmentStatus(a.id, 'confirmed')} className="action-btn action-btn-green">Confirm</button>
-                              <button onClick={() => handleAppointmentStatus(a.id, 'cancelled')} className="action-btn action-btn-red">Cancel</button>
+                              <button onClick={() => handleAppointmentStatus(a.id, 'confirmed')} disabled={actionLoading} className="action-btn action-btn-green">Confirm</button>
+                              <button onClick={() => handleAppointmentStatus(a.id, 'cancelled')} disabled={actionLoading} className="action-btn action-btn-red">Cancel</button>
                             </div>
-                          : <button onClick={() => handleAppointmentStatus(a.id, 'completed')} className="action-btn action-btn-blue">Start</button>}
+                          : <button onClick={() => handleAppointmentStatus(a.id, 'completed')} disabled={actionLoading} className="action-btn action-btn-blue">Start</button>}
                       </td>
                     </tr>
                   ))}
@@ -371,7 +406,7 @@ export default function DoctorDashboard() {
                     <label className="form-label block mb-1.5">Time</label>
                     <input type="time" value={newSlot.time} onChange={e => setNewSlot({...newSlot, time: e.target.value})} className="form-input w-36" />
                   </div>
-                  <button onClick={handleAddSlot} className="btn-success"><Plus size={15} weight="bold" /> Add Slot</button>
+                  <button onClick={handleAddSlot} disabled={loadingSlots} className="btn-success"><Plus size={15} weight="bold" /> {loadingSlots ? 'Saving...' : 'Add Slot'}</button>
                 </div>
               </div>
 
@@ -390,7 +425,7 @@ export default function DoctorDashboard() {
                             {daySlots.map(slot => (
                               <div key={slot.id} className="flex items-center gap-1.5 bg-blue-light text-blue text-[12px] font-semibold px-3 py-1.5 rounded-sm">
                                 {slot.time_slot}
-                                <button onClick={() => handleRemoveSlot(slot.id)} className="hover:text-red transition-colors">
+                                <button onClick={() => handleRemoveSlot(slot.id)} disabled={loadingSlots} className="hover:text-red transition-colors">
                                   <X size={11} weight="bold" />
                                 </button>
                               </div>
@@ -400,6 +435,33 @@ export default function DoctorDashboard() {
                     </div>
                   );
                 })}
+              </div>
+            </div>
+          )}
+
+          {tab === 'profile' && (
+            <div className="card-static p-7 max-w-2xl animate-fade-in">
+              <h3 className="text-[17px] font-bold text-dark mb-6">My Profile</h3>
+              <div className="flex items-center gap-5 mb-8 pb-7 border-b border-border">
+                <Avatar src={doctorAvatar} name={doctorName} className="w-16 h-16" textClassName="text-xl" />
+                <div>
+                  <p className="font-fraunces text-[20px] font-semibold text-dark">{doctorName}</p>
+                  <p className="text-[14px] text-muted">{doctorProfile?.email || storedUser.email}</p>
+                  <label className="inline-flex mt-3 cursor-pointer items-center gap-2 px-3 py-2 rounded-sm border border-blue text-blue text-[13px] font-semibold hover:bg-blue-light">
+                    Upload avatar
+                    <input type="file" accept="image/*" onChange={handleAvatarChange} className="hidden" />
+                  </label>
+                </div>
+              </div>
+              <div className="grid sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="form-label block mb-1.5">Specialty</label>
+                  <p className="text-[15px] text-dark font-medium px-4 py-[11px] bg-bg rounded-sm border border-border">{doctorRoleLabel}</p>
+                </div>
+                <div>
+                  <label className="form-label block mb-1.5">Hospital</label>
+                  <p className="text-[15px] text-dark font-medium px-4 py-[11px] bg-bg rounded-sm border border-border">{doctorProfile?.hospital || ''}</p>
+                </div>
               </div>
             </div>
           )}

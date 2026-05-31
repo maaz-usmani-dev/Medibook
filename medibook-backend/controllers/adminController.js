@@ -1,5 +1,10 @@
 const db = require('../config/db');
-const { sendDoctorApprovalNotification } = require('../config/mailer');
+const bcrypt = require('bcryptjs');
+const crypto = require('crypto');
+const {
+  sendDoctorApprovalNotification,
+  sendDoctorAccountCreatedEmail,
+} = require('../config/mailer');
 
 exports.getStats = async (req, res) => {
   try {
@@ -139,6 +144,106 @@ exports.updateDoctorStatus = async (req, res) => {
     res.json({ message: `Doctor status updated to ${status}.` });
   } catch (err) {
     res.status(500).json({ message: err.message });
+  }
+};
+
+exports.createDoctorAccount = async (req, res) => {
+  const {
+    full_name,
+    email,
+    password,
+    phone,
+    date_of_birth,
+    gender,
+    specialty,
+    qualification,
+    experience_years,
+    fee,
+    hospital,
+    languages,
+    bio,
+    send_email = true,
+  } = req.body;
+
+  if (!full_name || !email || !specialty || !hospital) {
+    return res.status(400).json({ message: 'Name, email, specialty, and hospital are required.' });
+  }
+
+  const safeGender = ['Male', 'Female', 'Other'].includes(gender) ? gender : null;
+  const doctorGender = ['Male', 'Female'].includes(gender) ? gender : null;
+  const tempPassword = password || crypto.randomBytes(9).toString('base64url');
+  const connection = await db.getConnection();
+
+  try {
+    await connection.beginTransaction();
+
+    const [existing] = await connection.query('SELECT id FROM users WHERE email = ?', [email]);
+    if (existing.length > 0) {
+      await connection.rollback();
+      return res.status(409).json({ message: 'A user with this email already exists.' });
+    }
+
+    const password_hash = await bcrypt.hash(tempPassword, 10);
+    const [userResult] = await connection.query(
+      `INSERT INTO users (full_name, email, password_hash, phone, date_of_birth, gender, role)
+       VALUES (?, ?, ?, ?, ?, ?, 'doctor')`,
+      [full_name, email, password_hash, phone || null, date_of_birth || null, safeGender]
+    );
+
+    const [doctorResult] = await connection.query(
+      `INSERT INTO doctors
+        (user_id, specialty, qualification, experience_years, bio, hospital, languages, fee, gender, status)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'active')`,
+      [
+        userResult.insertId,
+        specialty,
+        qualification || null,
+        experience_years || null,
+        bio || null,
+        hospital,
+        languages || null,
+        fee || null,
+        doctorGender,
+      ]
+    );
+
+    await connection.commit();
+
+    let emailSent = false;
+    if (send_email !== false) {
+      try {
+        await sendDoctorAccountCreatedEmail({
+          doctorEmail: email,
+          doctorName: full_name,
+          password: tempPassword,
+          loginUrl: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/login`,
+        });
+        emailSent = true;
+      } catch (mailerError) {
+        console.error('Doctor account email failed:', mailerError.message);
+      }
+    }
+
+    return res.status(201).json({
+      message: 'Doctor account created successfully.',
+      doctor: {
+        id: doctorResult.insertId,
+        user_id: userResult.insertId,
+        full_name,
+        email,
+        specialty,
+        hospital,
+        status: 'active',
+      },
+      emailSent,
+      temporaryPassword: emailSent ? undefined : tempPassword,
+    });
+  } catch (err) {
+    await connection.rollback();
+    console.error('createDoctorAccount error:', err);
+    return res.status(500).json({ message: 'Unable to create doctor account.' });
+  } finally {
+    connection.release();
   }
 };
 

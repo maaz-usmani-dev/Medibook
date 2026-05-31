@@ -5,24 +5,14 @@ import {
   User, Bell, PencilSimple, FloppyDisk
 } from '@phosphor-icons/react';
 import Sidebar from '../components/Sidebar';
+import Avatar, { initialsFromName } from '../components/Avatar';
 import { api } from '../services/api';
-
-const fallbackImg = 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=84&h=84&fit=crop&crop=face';
-
-const initialsFromName = (name = '') =>
-  name
-    .split(' ')
-    .filter(Boolean)
-    .map(part => part[0])
-    .join('')
-    .slice(0, 2)
-    .toUpperCase() || 'U';
 
 const mapProfile = (data = {}) => ({
   name: data.full_name || data.name || 'Patient',
   initials: initialsFromName(data.full_name || data.name),
   role: 'Patient Account',
-  img: fallbackImg,
+  img: data.avatar_url || data.img || '',
   email: data.email || '',
   phone: data.phone || '',
   dob: data.date_of_birth ? String(data.date_of_birth).slice(0, 10) : '',
@@ -64,6 +54,7 @@ export default function PatientDashboard() {
   const [error, setError] = useState(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [profileSaving, setProfileSaving] = useState(false);
+  const [avatarSaving, setAvatarSaving] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
 
   const fetchAppointments = async () => {
@@ -134,12 +125,38 @@ export default function PatientDashboard() {
         full_name: updated.full_name,
         email: updated.email,
         role: updated.role,
+        avatar_url: updated.avatar_url,
       }));
+      window.dispatchEvent(new Event('medibook:user-updated'));
       setEditing(false);
     } catch (err) {
       window.alert(err.message || 'Unable to save profile.');
     } finally {
       setProfileSaving(false);
+    }
+  };
+
+  const handleAvatarChange = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    setAvatarSaving(true);
+    try {
+      const updated = await api.updateAvatar(file);
+      const mapped = mapProfile(updated);
+      setProfile(mapped);
+      localStorage.setItem('user', JSON.stringify({
+        id: updated.id,
+        full_name: updated.full_name,
+        email: updated.email,
+        role: updated.role,
+        avatar_url: updated.avatar_url,
+      }));
+      window.dispatchEvent(new Event('medibook:user-updated'));
+    } catch (err) {
+      window.alert(err.message || 'Unable to upload avatar.');
+    } finally {
+      setAvatarSaving(false);
+      event.target.value = '';
     }
   };
 
@@ -216,7 +233,7 @@ export default function PatientDashboard() {
               </div>
             )}
             <div className="flex items-center gap-2.5 cursor-pointer px-2.5 py-1.5 rounded-sm hover:bg-bg transition-colors">
-              <img src={profile.img} alt={profile.name} className="w-9 h-9 rounded-full object-cover" />
+              <Avatar src={profile.img} name={profile.name} className="w-9 h-9" />
               <span className="text-[14px] font-semibold text-dark">{profile.name}</span>
             </div>
           </div>
@@ -399,10 +416,16 @@ export default function PatientDashboard() {
               </div>
 
               <div className="flex items-center gap-5 mb-8 pb-7 border-b border-border">
-                <img src={profile.img} alt={profile.name} className="w-16 h-16 rounded-[14px] object-cover border-2 border-border" />
+                <Avatar src={profile.img} name={profile.name} className="w-16 h-16" textClassName="text-xl" />
                 <div>
                   <p className="font-fraunces text-[20px] font-semibold text-dark">{profile.name}</p>
                   <p className="text-[14px] text-muted">{profile.email}</p>
+                  {editing && (
+                    <label className="inline-flex mt-3 cursor-pointer items-center gap-2 px-3 py-2 rounded-sm border border-blue text-blue text-[13px] font-semibold hover:bg-blue-light">
+                      {avatarSaving ? 'Uploading...' : 'Upload avatar'}
+                      <input type="file" accept="image/*" onChange={handleAvatarChange} disabled={avatarSaving} className="hidden" />
+                    </label>
+                  )}
                 </div>
               </div>
 

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useLocation, Link, useNavigate, useParams } from 'react-router-dom';
-import { CheckCircle, CalendarBlank, Clock, MapPin, CurrencyCircleDollar, Envelope, ArrowRight } from '@phosphor-icons/react';
+import { CheckCircle, Envelope, ArrowRight } from '@phosphor-icons/react';
 import { api } from '../services/api';
 // import Logo from '../components/Logo';
 
@@ -9,7 +9,7 @@ export default function BookingConfirmation() {
   const { id } = useParams();
   const navigate = useNavigate();
   const [appointmentData, setAppointmentData] = useState(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(Boolean(id && !state?.appointment));
   const [fetchError, setFetchError] = useState('');
 
   useEffect(() => {
@@ -38,10 +38,7 @@ export default function BookingConfirmation() {
   }, [id, navigate, state]);
 
   const appointment = state?.appointment || appointmentData;
-  const doctor = state?.doctor || appointmentData?.doctor || {
-    name: 'Dr. Sarah Ahmed', specialty: 'Cardiology',
-    hospital: 'City Hospital, Karachi', fee: 1500, photo: 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=76&h=76&fit=crop&crop=face',
-  };
+  const doctor = state?.doctor || appointmentData?.doctor || {};
   const date = state?.date || (appointmentData?.appointment_date
     ? new Date(appointmentData.appointment_date).toLocaleDateString(undefined, {
         weekday: 'long',
@@ -49,10 +46,10 @@ export default function BookingConfirmation() {
         day: 'numeric',
         year: 'numeric',
       })
-    : 'Wednesday, May 8, 2024');
-  const slot = state?.slot || appointmentData?.time_slot || '11:00 AM';
+    : '');
+  const slot = state?.slot || appointmentData?.time_slot || '';
   const type = state?.type || appointmentData?.type || 'In-person';
-  const status = state?.status || appointmentData?.status || 'Confirmed';
+  const status = state?.status || appointmentData?.status || 'confirmed';
   const apptId = appointment?.id
     ? `#MED-${String(appointment.id).padStart(6, '0')}`
     : '#MED-2024-' + Math.floor(10000 + Math.random() * 90000);
@@ -60,7 +57,7 @@ export default function BookingConfirmation() {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center p-10 text-center text-muted">
-        Loading appointment details…
+        Loading appointment details...
       </div>
     );
   }
@@ -83,7 +80,7 @@ export default function BookingConfirmation() {
     { label: 'Date',      val: date },
     { label: 'Time',      val: slot },
     { label: 'Type',      val: null, badge: <span className="badge badge-blue">{type}</span> },
-    { label: 'Fee',       val: null, fee: `PKR ${doctor.fee?.toLocaleString()}` },
+    { label: 'Fee',       val: null, fee: `PKR ${Number(doctor.fee || 0).toLocaleString()}` },
     { label: 'Status',    val: null, badge: <span className="badge badge-green">● {status}</span> },
   ];
 
@@ -131,9 +128,6 @@ export default function BookingConfirmation() {
 
             {/* Actions */}
             <div className="flex flex-wrap gap-3 justify-center">
-              <button className="btn-ghost">
-                <CalendarBlank size={15} weight="duotone" /> Add to Calendar
-              </button>
               <Link to="/patient-dashboard" className="btn-primary">
                 View Dashboard <ArrowRight size={14} weight="bold" />
               </Link>

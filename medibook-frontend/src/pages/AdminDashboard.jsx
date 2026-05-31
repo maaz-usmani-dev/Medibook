@@ -44,13 +44,20 @@ export default function AdminDashboard() {
   const [showNotifications, setShowNotifications] = useState(false);
   const [showAddDoctor, setShowAddDoctor] = useState(false);
   const [newDoctor, setNewDoctor] = useState({
-    user_id: '',
+    full_name: '',
+    email: '',
+    password: '',
+    phone: '',
+    date_of_birth: '',
     specialty: '',
+    qualification: '',
     hospital: '',
+    languages: '',
     experience_years: '',
     fee: '',
     gender: 'Male',
     bio: '',
+    send_email: true,
   });
 
   const sidebarLinks = useMemo(() => [
@@ -180,23 +187,52 @@ export default function AdminDashboard() {
     setActionLoading(true);
 
     try {
-      await api.addDoctor({
-        user_id: newDoctor.user_id,
+      const created = await api.addDoctor({
+        full_name: newDoctor.full_name,
+        email: newDoctor.email,
+        password: newDoctor.password || undefined,
+        phone: newDoctor.phone,
+        date_of_birth: newDoctor.date_of_birth,
         specialty: newDoctor.specialty,
+        qualification: newDoctor.qualification,
         hospital: newDoctor.hospital,
+        languages: newDoctor.languages,
         experience_years: newDoctor.experience_years,
         fee: newDoctor.fee,
         gender: newDoctor.gender,
         bio: newDoctor.bio,
+        send_email: newDoctor.send_email,
       });
+      if (created.temporaryPassword) {
+        window.alert(`Doctor account created. Temporary password: ${created.temporaryPassword}`);
+      }
 
-      const [updatedDoctors, updatedPending] = await Promise.all([
+      const [updatedDoctors, updatedPending, updatedUsers, updatedStats] = await Promise.all([
         api.getAllDoctors(),
         api.getPendingDoctors(),
+        api.getUsers(),
+        api.getAdminStats(),
       ]);
       setDoctors(updatedDoctors);
       setPendingDoctors(updatedPending);
-      setNewDoctor({ user_id: '', specialty: '', hospital: '', experience_years: '', fee: '', gender: 'Male', bio: '' });
+      setUsers(updatedUsers);
+      setStats(updatedStats);
+      setNewDoctor({
+        full_name: '',
+        email: '',
+        password: '',
+        phone: '',
+        date_of_birth: '',
+        specialty: '',
+        qualification: '',
+        hospital: '',
+        languages: '',
+        experience_years: '',
+        fee: '',
+        gender: 'Male',
+        bio: '',
+        send_email: true,
+      });
       setShowAddDoctor(false);
     } catch (err) {
       window.alert(err.message || 'Unable to add doctor.');
@@ -334,16 +370,40 @@ export default function AdminDashboard() {
               {showAddDoctor && (
                 <form onSubmit={handleAddDoctor} className="card-static p-6 grid md:grid-cols-2 gap-4">
                   <div>
-                    <label className="form-label block mb-1.5">Existing User ID</label>
-                    <input value={newDoctor.user_id} onChange={e => setNewDoctor({ ...newDoctor, user_id: e.target.value })} className="form-input" required />
+                    <label className="form-label block mb-1.5">Full Name</label>
+                    <input value={newDoctor.full_name} onChange={e => setNewDoctor({ ...newDoctor, full_name: e.target.value })} className="form-input" required />
+                  </div>
+                  <div>
+                    <label className="form-label block mb-1.5">Email</label>
+                    <input type="email" value={newDoctor.email} onChange={e => setNewDoctor({ ...newDoctor, email: e.target.value })} className="form-input" required />
+                  </div>
+                  <div>
+                    <label className="form-label block mb-1.5">Temporary Password</label>
+                    <input type="text" value={newDoctor.password} onChange={e => setNewDoctor({ ...newDoctor, password: e.target.value })} placeholder="Auto-generate if blank" className="form-input" />
+                  </div>
+                  <div>
+                    <label className="form-label block mb-1.5">Phone</label>
+                    <input value={newDoctor.phone} onChange={e => setNewDoctor({ ...newDoctor, phone: e.target.value })} className="form-input" />
+                  </div>
+                  <div>
+                    <label className="form-label block mb-1.5">Date of Birth</label>
+                    <input type="date" value={newDoctor.date_of_birth} onChange={e => setNewDoctor({ ...newDoctor, date_of_birth: e.target.value })} className="form-input" />
                   </div>
                   <div>
                     <label className="form-label block mb-1.5">Specialty</label>
                     <input value={newDoctor.specialty} onChange={e => setNewDoctor({ ...newDoctor, specialty: e.target.value })} className="form-input" required />
                   </div>
                   <div>
+                    <label className="form-label block mb-1.5">Qualification</label>
+                    <input value={newDoctor.qualification} onChange={e => setNewDoctor({ ...newDoctor, qualification: e.target.value })} className="form-input" />
+                  </div>
+                  <div>
                     <label className="form-label block mb-1.5">Hospital / Clinic</label>
                     <input value={newDoctor.hospital} onChange={e => setNewDoctor({ ...newDoctor, hospital: e.target.value })} className="form-input" required />
+                  </div>
+                  <div>
+                    <label className="form-label block mb-1.5">Languages</label>
+                    <input value={newDoctor.languages} onChange={e => setNewDoctor({ ...newDoctor, languages: e.target.value })} placeholder="English, Urdu" className="form-input" />
                   </div>
                   <div>
                     <label className="form-label block mb-1.5">Experience Years</label>
@@ -361,6 +421,10 @@ export default function AdminDashboard() {
                       <option>Other</option>
                     </select>
                   </div>
+                  <label className="md:col-span-2 flex items-center gap-2.5 text-[14px] text-dark cursor-pointer">
+                    <input type="checkbox" checked={newDoctor.send_email} onChange={e => setNewDoctor({ ...newDoctor, send_email: e.target.checked })} />
+                    Email login credentials to this doctor
+                  </label>
                   <div className="md:col-span-2">
                     <label className="form-label block mb-1.5">Bio</label>
                     <textarea value={newDoctor.bio} onChange={e => setNewDoctor({ ...newDoctor, bio: e.target.value })} className="form-input min-h-[90px]" />

@@ -18,7 +18,7 @@ export const normalizeDoctor = (doctor) => ({
   nextSlot: doctor.next_slot || doctor.nextSlot || 'Check profile',
   tags: doctor.tags || [doctor.specialty || 'General'],
   tagColor: doctor.tagColor || 'blue',
-  photo: doctor.photo || doctor.avatar || `https://images.unsplash.com/photo-1544723795-3fb6469f5b39?w=600&h=400&fit=crop&crop=top`,
+  photo: doctor.photo || doctor.avatar_url || doctor.avatar || '',
   // DB-specific fields mapped for profile
   languages: typeof doctor.languages === 'string' ? doctor.languages.split(',').map(s => s.trim()) : (doctor.languages || []),
   education: doctor.qualification ? [{ degree: doctor.qualification, school: '' }] : (doctor.education || []),

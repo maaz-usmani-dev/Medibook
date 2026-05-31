@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import {
-  Star, Clock, MapPin, Users, ChatCircle, GraduationCap,
-  CheckCircle, ArrowLeft, Globe, Video
+  Clock, MapPin, Users, GraduationCap, Globe, Video
 } from '@phosphor-icons/react';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
+import Avatar from '../components/Avatar';
 import { api } from '../services/api';
 import { normalizeDoctor } from '../utils/normalizeDoctor';
 
@@ -142,6 +142,30 @@ export default function DoctorProfile() {
     { name: 'Kamran A.',    rating: 4, date: '2 months ago',text: 'Very professional and knowledgeable. Appointment was on time.' },
   ];
 
+  if (loadingDoc) {
+    return (
+      <div className="min-h-screen">
+        <Navbar />
+        <div className="max-w-[1240px] mx-auto px-10 py-20 text-center text-muted">Loading doctor profile...</div>
+        <Footer />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen">
+        <Navbar />
+        <div className="max-w-[720px] mx-auto px-10 py-20 text-center">
+          <p className="font-fraunces text-[24px] font-semibold text-dark mb-3">Unable to load doctor</p>
+          <p className="text-red mb-6">{error}</p>
+          <Link to="/doctors" className="btn-primary">Back to doctors</Link>
+        </div>
+        <Footer />
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen">
       <Navbar />
@@ -157,8 +181,7 @@ export default function DoctorProfile() {
 
           <div className="flex flex-col lg:flex-row gap-10 items-start">
             {/* Photo */}
-            <img src={doctor?.photo} alt={doctor?.name}
-              className="w-[200px] h-[220px] rounded-[14px] object-cover object-top shadow-md flex-shrink-0" />
+            <Avatar src={doctor?.photo} name={doctor?.name || 'Doctor'} className="w-[200px] h-[220px] rounded-[14px] shadow-md flex-shrink-0" textClassName="text-4xl" rounded={false} />
 
             {/* Info */}
             <div className="flex-1">
@@ -172,7 +195,7 @@ export default function DoctorProfile() {
               </div>
               <h1 className="font-fraunces text-[36px] font-semibold text-dark leading-tight mb-2">{doctor?.name || ''}</h1>
               <p className="text-[17px] text-muted mb-3">
-                {doctor?.education?.[0]?.degree || doctor?.qualification || ''} — {doctor?.specialty}
+                {[doctor?.education?.[0]?.degree || doctor?.qualification, doctor?.specialty].filter(Boolean).join(' - ')}
               </p>
               <div className="flex items-center gap-2.5 mb-4">
                 <span className="stars text-[18px]">★★★★★</span>

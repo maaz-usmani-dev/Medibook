@@ -29,6 +29,15 @@ const request = async (url, options = {}) => {
   return handleResponse(res);
 };
 
+const uploadRequest = async (url, formData, options = {}) => {
+  const res = await fetch(url, {
+    method: 'PUT',
+    credentials: options.credentials ? 'include' : 'same-origin',
+    body: formData,
+  });
+  return handleResponse(res);
+};
+
 export const api = {
   // AUTH
 
@@ -90,6 +99,12 @@ export const api = {
       body,
     }),
 
+  updateAvatar: async (file) => {
+    const formData = new FormData();
+    formData.append('avatar', file);
+    return uploadRequest(`${API}/auth/me/avatar`, formData, { credentials: true });
+  },
+
   // DOCTORS
 
   getDoctors: async (filters = {}) => {
@@ -112,7 +127,7 @@ export const api = {
   getAllDoctors: async () => request(`${API}/doctors`),
 
   addDoctor: async (body) =>
-    request(`${API}/doctors`, {
+    request(`${API}/admin/doctors`, {
       method: 'POST',
       credentials: true,
       body,

@@ -1,15 +1,12 @@
 import { Link } from 'react-router-dom';
-import { Star, Clock, MapPin, CalendarBlank } from '@phosphor-icons/react';
+import { Star, Clock, MapPin } from '@phosphor-icons/react';
+import Avatar from './Avatar';
 
 export default function DoctorCard({ doctor, horizontal = false }) {
   if (horizontal) {
     return (
       <article className="card flex overflow-hidden cursor-pointer group">
-        <img
-          src={doctor.photo}
-          alt={doctor.name}
-          className="w-[180px] h-[200px] object-cover object-top flex-shrink-0"
-        />
+        <Avatar src={doctor.photo} name={doctor.name} className="w-[180px] h-[200px] flex-shrink-0" textClassName="text-3xl" rounded={false} />
         <div className="flex-1 p-6 flex flex-col justify-between">
           <div>
             <div className="flex justify-between items-start">
@@ -57,8 +54,8 @@ export default function DoctorCard({ doctor, horizontal = false }) {
 
   // Grid card (homepage)
   return (
-    <article className="card overflow-hidden cursor-pointer group" onClick={() => {}}>
-      <img src={doctor.photo} alt={doctor.name} className="w-full h-[220px] object-cover object-top" />
+    <article className="card overflow-hidden group">
+      <Avatar src={doctor.photo} name={doctor.name} className="w-full h-[220px]" textClassName="text-3xl" rounded={false} />
       <div className="p-[22px]">
         <h3 className="text-[17px] font-bold text-dark">{doctor.name}</h3>
         <p className="text-[14px] text-muted mt-1 mb-3">{doctor.title}</p>

@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { api } from "../services/api";
-import { Eye, EyeSlash, GoogleLogo } from "@phosphor-icons/react";
-// import Logo from '../components/Logo';
+import { Eye, EyeSlash } from "@phosphor-icons/react";
+import Logo from '../components/Logo';
 
 function PasswordInput({ value, onChange, name, placeholder }) {
   const [show, setShow] = useState(false);
@@ -328,8 +328,15 @@ export function SignUp() {
         return;
       }
 
-      localStorage.setItem("user", JSON.stringify(data.user));
-      navigate("/patient-dashboard");
+      await api.logout().catch(() => {});
+      localStorage.removeItem("user");
+      window.dispatchEvent(new Event("medibook:user-updated"));
+      navigate("/login", {
+        state: {
+          info: "Account created successfully. Please sign in to continue.",
+          email: form.email,
+        },
+      });
     } catch (err) {
       setApiError(err.message || "Registration failed");
     } finally {
@@ -342,7 +349,10 @@ export function SignUp() {
       {/* Left */}
       <div className="flex items-center justify-center p-[60px] bg-white overflow-y-auto">
         <div className="w-full max-w-[440px]">
-          {/* <div className="mb-10"><Logo /></div> */}
+          <div className="flex items-center justify-between mb-10">
+            <Logo />
+            <Link to="/" className="text-[13px] font-semibold text-blue hover:underline">Back home</Link>
+          </div>
           <h1 className="font-fraunces text-[32px] font-semibold text-dark mb-2">
             Create your account
           </h1>
@@ -624,6 +634,12 @@ export function Login() {
   const ch = (e) => setForm({ ...form, [e.target.name]: e.target.value });
 
   useEffect(() => {
+    if (location.state?.email) {
+      setForm(prev => ({ ...prev, email: location.state.email }));
+    }
+  }, [location.state?.email]);
+
+  useEffect(() => {
     if (authFlow !== 'login' || googleUser) return;
 
     loadGoogleScript().then(() => {
@@ -792,7 +808,10 @@ export function Login() {
     <div className="min-h-screen grid lg:grid-cols-2">
       <div className="flex items-center justify-center p-[60px] bg-white">
         <div className="w-full max-w-[400px]">
-          {/* <div className="mb-10"><Logo /></div> */}
+          <div className="flex items-center justify-between mb-10">
+            <Logo />
+            <Link to="/" className="text-[13px] font-semibold text-blue hover:underline">Back home</Link>
+          </div>
           <h1 className="font-fraunces text-[32px] font-semibold text-dark mb-2">
             Welcome back 👋
           </h1>

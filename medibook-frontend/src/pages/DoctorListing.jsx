@@ -200,10 +200,18 @@ export default function DoctorListing() {
             </div>
 
             <div className="flex flex-col gap-4">
-              {filtered.map(d => <DoctorCard key={d.id} doctor={d} horizontal />)}
-              {filtered.length === 0 && (
+              {loading && (
+                <div className="card p-10 text-center text-muted">Loading doctors...</div>
+              )}
+              {!loading && error && (
+                <div className="card p-10 text-center">
+                  <p className="font-fraunces text-[22px] font-semibold text-dark mb-2">Unable to load doctors</p>
+                  <p className="text-red text-[15px]">{error}</p>
+                </div>
+              )}
+              {!loading && !error && filtered.map(d => <DoctorCard key={d.id} doctor={d} horizontal />)}
+              {!loading && !error && filtered.length === 0 && (
                 <div className="card p-16 text-center">
-                  <p className="text-4xl mb-3">🔍</p>
                   <p className="font-fraunces text-[22px] font-semibold text-dark mb-2">No doctors found</p>
                   <p className="text-muted text-[15px]">Try adjusting your filters or search term.</p>
                   <button onClick={reset} className="btn-ghost mt-5">Clear Filters</button>
@@ -212,7 +220,7 @@ export default function DoctorListing() {
             </div>
 
             {/* Pagination */}
-            {filtered.length > 0 && (
+            {!loading && !error && filtered.length > 0 && (
               <div className="flex justify-center gap-1.5 mt-9">
                 {['←', '1', '2', '3', '4', '→'].map((p, i) => (
                   <button key={i}

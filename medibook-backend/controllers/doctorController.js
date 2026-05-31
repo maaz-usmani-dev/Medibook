@@ -23,6 +23,7 @@ exports.getAllDoctors = async (req, res) => {
           d.gender,
           d.hospital,
           d.bio,
+          u.avatar_url,
           u.full_name,
           u.email,
           u.phone
@@ -53,6 +54,7 @@ exports.getAllDoctors = async (req, res) => {
           d.gender,
           d.hospital,
           d.bio,
+          u.avatar_url,
           u.full_name,
           u.email,
           u.phone
@@ -94,6 +96,7 @@ exports.getDoctorById = async (req, res) => {
       SELECT
         d.*, 
         u.full_name,
+        u.avatar_url,
         u.email,
         u.phone
       FROM doctors d
@@ -121,6 +124,7 @@ exports.getMyDoctorProfile = async (req, res) => {
       SELECT
         d.*,
         u.full_name,
+        u.avatar_url,
         u.email,
         u.phone
       FROM doctors d

@@ -7,6 +7,7 @@ const crypto  = require('crypto');
 const { OAuth2Client } = require('google-auth-library');
 const { validationResult } = require('express-validator');
 const db      = require('../config/db');
+const cloudinary = require('../config/cloudinary');
 const {
   sendDoctorApplicationNotification,
   sendDoctorApprovalNotification,
@@ -119,7 +120,7 @@ const register = async (req, res) => {
 
       return res.status(201).json({
         message: 'Doctor registration submitted successfully and is pending admin approval.',
-        user: { id: userId, full_name, email, role: safeRole },
+        user: { id: userId, full_name, email, role: safeRole, avatar_url: null },
         status: 'review',
       });
     }
@@ -129,7 +130,7 @@ const register = async (req, res) => {
 
     return res.status(201).json({
       message: 'Registration successful.',
-      user: { id: userId, full_name, email, role: safeRole },
+      user: { id: userId, full_name, email, role: safeRole, avatar_url: null },
     });
   } catch (err) {
     console.error('register error:', err);
@@ -180,7 +181,7 @@ const login = async (req, res) => {
 
     return res.json({
       message: 'Login successful.',
-      user: { id: user.id, full_name: user.full_name, email: user.email, role: user.role },
+      user: { id: user.id, full_name: user.full_name, email: user.email, role: user.role, avatar_url: user.avatar_url },
     });
   } catch (err) {
     console.error('login error:', err);
@@ -192,7 +193,7 @@ const login = async (req, res) => {
 const getMe = async (req, res) => {
   try {
     const [rows] = await db.query(
-      'SELECT id, full_name, email, phone, date_of_birth, gender, role, created_at FROM users WHERE id = ?',
+      'SELECT id, full_name, email, phone, avatar_url, date_of_birth, gender, role, created_at FROM users WHERE id = ?',
       [req.user.id]
     );
     if (!rows[0]) return res.status(404).json({ error: 'User not found.' });
@@ -213,7 +214,7 @@ const updateMe = async (req, res) => {
     );
 
     const [rows] = await db.query(
-      'SELECT id, full_name, email, phone, date_of_birth, gender, role, created_at FROM users WHERE id = ?',
+      'SELECT id, full_name, email, phone, avatar_url, date_of_birth, gender, role, created_at FROM users WHERE id = ?',
       [req.user.id]
     );
 
@@ -221,6 +222,45 @@ const updateMe = async (req, res) => {
   } catch (err) {
     console.error('updateMe error:', err);
     return res.status(500).json({ error: 'Unable to update profile.' });
+  }
+};
+
+const updateAvatar = async (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ error: 'Avatar image is required.' });
+  }
+
+  if (!process.env.CLOUDINARY_CLOUD_NAME || !process.env.CLOUDINARY_API_KEY || !process.env.CLOUDINARY_API_SECRET) {
+    return res.status(500).json({ error: 'Cloudinary is not configured.' });
+  }
+
+  try {
+    const upload = await new Promise((resolve, reject) => {
+      const stream = cloudinary.uploader.upload_stream(
+        {
+          folder: 'medibook/avatars',
+          resource_type: 'image',
+          transformation: [
+            { width: 320, height: 320, crop: 'fill', gravity: 'face' },
+            { quality: 'auto', fetch_format: 'auto' },
+          ],
+        },
+        (error, result) => (error ? reject(error) : resolve(result))
+      );
+      stream.end(req.file.buffer);
+    });
+
+    await db.query('UPDATE users SET avatar_url = ? WHERE id = ?', [upload.secure_url, req.user.id]);
+
+    const [rows] = await db.query(
+      'SELECT id, full_name, email, phone, avatar_url, date_of_birth, gender, role, created_at FROM users WHERE id = ?',
+      [req.user.id]
+    );
+
+    return res.json(rows[0]);
+  } catch (err) {
+    console.error('updateAvatar error:', err);
+    return res.status(500).json({ error: 'Unable to upload avatar.' });
   }
 };
 
@@ -388,6 +428,7 @@ const googleLogin = async (req, res) => {
         full_name: user.full_name,
         email: user.email,
         role: user.role,
+        avatar_url: user.avatar_url,
         date_of_birth: user.date_of_birth,
         gender: user.gender,
         phone: user.phone,
@@ -440,7 +481,7 @@ const completeGoogleProfile = async (req, res) => {
     }
 
     const [updatedRows] = await db.query(
-      'SELECT u.id, u.full_name, u.email, u.phone, u.date_of_birth, u.gender, u.role, d.status AS doctor_status FROM users u LEFT JOIN doctors d ON d.user_id = u.id WHERE u.id = ?',
+      'SELECT u.id, u.full_name, u.email, u.phone, u.avatar_url, u.date_of_birth, u.gender, u.role, d.status AS doctor_status FROM users u LEFT JOIN doctors d ON d.user_id = u.id WHERE u.id = ?',
       [userId]
     );
 
@@ -457,6 +498,7 @@ const completeGoogleProfile = async (req, res) => {
         date_of_birth: updatedUser.date_of_birth,
         gender: updatedUser.gender,
         phone: updatedUser.phone,
+        avatar_url: updatedUser.avatar_url,
       },
       needsProfileCompletion: profileNeedsCompletion,
       doctor_status: updatedUser.doctor_status,
@@ -472,6 +514,7 @@ module.exports = {
   login,
   getMe,
   updateMe,
+  updateAvatar,
   logout,
   forgotPassword,
   resetPassword,

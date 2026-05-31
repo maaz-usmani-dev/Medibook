@@ -3,9 +3,16 @@ import { FacebookLogo, TwitterLogo, InstagramLogo, LinkedinLogo } from '@phospho
 // import Logo from './Logo';
 
 const cols = [
-  { title: 'Company', links: [{ label: 'About Us', to: '/about' }, { label: 'Our Doctors', to: '/doctors' }, { label: 'Careers', to: '#' }, { label: 'Press', to: '#' }] },
-  { title: 'Patients', links: [{ label: 'Find Doctors', to: '/doctors' }, { label: 'Book Appointment', to: '/doctors' }, { label: 'Health Blog', to: '#' }, { label: 'FAQ', to: '#' }] },
-  { title: 'Contact', links: [{ label: 'info@medibook.pk', to: '#' }, { label: '+92-300-000-0000', to: '#' }, { label: 'Karachi, Pakistan', to: '#' }, { label: 'Help Center', to: '#' }] },
+  { title: 'Company', links: [{ label: 'About Us', to: '/about' }, { label: 'Our Doctors', to: '/doctors' }] },
+  { title: 'Patients', links: [{ label: 'Find Doctors', to: '/doctors' }, { label: 'Book Appointment', to: '/doctors' }] },
+  { title: 'Contact', links: [{ label: 'info@medibook.pk', to: 'mailto:info@medibook.pk', external: true }, { label: '+92-300-000-0000', to: 'tel:+923000000000', external: true }, { label: 'Karachi, Pakistan', to: '/doctors' }] },
+];
+
+const socialLinks = [
+  { Icon: FacebookLogo, href: 'https://www.facebook.com/' },
+  { Icon: TwitterLogo, href: 'https://twitter.com/' },
+  { Icon: InstagramLogo, href: 'https://www.instagram.com/' },
+  { Icon: LinkedinLogo, href: 'https://www.linkedin.com/' },
 ];
 
 export default function Footer() {
@@ -20,8 +27,8 @@ export default function Footer() {
                 Connecting patients with Pakistan's most trusted doctors. Book appointments online, anytime.
               </p>
               <div className="flex gap-2.5 mt-5">
-                {[FacebookLogo, TwitterLogo, InstagramLogo, LinkedinLogo].map((Icon, i) => (
-                  <a key={i} href="#"
+                {socialLinks.map(({ Icon, href }) => (
+                  <a key={href} href={href} target="_blank" rel="noreferrer" aria-label="Open MediBook social profile"
                     className="w-9 h-9 rounded-sm bg-white/[0.08] flex items-center justify-center hover:bg-blue transition-colors duration-200">
                     <Icon size={16} className="text-white/70" weight="fill" />
                   </a>
@@ -33,9 +40,12 @@ export default function Footer() {
               <div key={col.title}>
                 <h4 className="text-[13px] font-bold text-white uppercase tracking-[1px] mb-5">{col.title}</h4>
                 <div className="space-y-3">
-                  {col.links.map(l => (
-                    <Link key={l.label} to={l.to}
-                      className="block text-[14px] text-white/50 hover:text-white transition-colors duration-200">
+                  {col.links.map(l => l.external ? (
+                    <a key={l.label} href={l.to} className="block text-[14px] text-white/50 hover:text-white transition-colors duration-200">
+                      {l.label}
+                    </a>
+                  ) : (
+                    <Link key={l.label} to={l.to} className="block text-[14px] text-white/50 hover:text-white transition-colors duration-200">
                       {l.label}
                     </Link>
                   ))}

@@ -17,6 +17,7 @@ CREATE TABLE IF NOT EXISTS users (
   google_id       VARCHAR(255)  UNIQUE,
   password_hash   VARCHAR(255)  NOT NULL,
   phone           VARCHAR(20),
+  avatar_url      VARCHAR(500),
   date_of_birth   DATE,
   gender          ENUM('Male','Female','Other'),
   role            ENUM('patient','doctor','admin') DEFAULT 'patient',

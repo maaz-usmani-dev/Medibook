@@ -39,6 +39,12 @@ app.use(express.json());
       await db.query('ALTER TABLE users ADD COLUMN google_id VARCHAR(255) UNIQUE');
       console.log('Google ID column added to users table');
     }
+
+    const [avatarColumns] = await db.query("SHOW COLUMNS FROM users LIKE 'avatar_url'");
+    if (avatarColumns.length === 0) {
+      await db.query('ALTER TABLE users ADD COLUMN avatar_url VARCHAR(500)');
+      console.log('Avatar URL column added to users table');
+    }
   } catch (err) {
     console.error('Failed to initialize auth schema:', err.message);
   }
