@@ -8,6 +8,7 @@ const db       = require('./config/db');
 
 const authRoutes         = require('./routes/auth');
 const doctorRoutes       = require('./routes/doctors');
+const reviewRoutes       = require('./routes/reviews');
 const appointmentRoutes  = require('./routes/appointments');
 const availabilityRoutes = require('./routes/availability');
 const adminRoutes        = require('./routes/admin');
@@ -34,6 +35,20 @@ app.use(express.json());
     `);
     console.log('Password reset table ready');
 
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS reviews (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        user_id INT NOT NULL,
+        doctor_id INT DEFAULT NULL,
+        rating TINYINT NOT NULL,
+        text TEXT NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+        FOREIGN KEY (doctor_id) REFERENCES doctors(id) ON DELETE SET NULL
+      )
+    `);
+    console.log('Reviews table ready');
+
     const [columns] = await db.query("SHOW COLUMNS FROM users LIKE 'google_id'");
     if (columns.length === 0) {
       await db.query('ALTER TABLE users ADD COLUMN google_id VARCHAR(255) UNIQUE');
@@ -53,8 +68,7 @@ app.use(express.json());
 app.use('/api/auth',         authRoutes);
 app.use('/api/doctors',      doctorRoutes);
 app.use('/api/appointments', appointmentRoutes);
-app.use('/api/availability', availabilityRoutes);
-app.use('/api/admin',        adminRoutes);
+app.use('/api/availability', availabilityRoutes);app.use('/api/reviews',      reviewRoutes);app.use('/api/admin',        adminRoutes);
 
 // ── Health check ─────────────────────────────────────────────
 app.get('/', (_req, res) => res.json({ message: 'MediBook API is running 🚀' }));

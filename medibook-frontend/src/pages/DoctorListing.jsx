@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { MagnifyingGlass, X } from '@phosphor-icons/react';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
@@ -8,19 +9,71 @@ import { normalizeDoctor } from '../utils/normalizeDoctor';
 
 const genders = ['Any', 'Male', 'Female'];
 const ratings = [{ label: '★★★★★ 4+', val: 4 }, { label: '★★★★ 3+', val: 3 }];
-const avail   = [{ label: 'Available Today', key: 'today' }, { label: 'This Week', key: 'week' }, { label: 'Video Consult', key: 'video' }];
+const avail   = [{ label: 'Any Date', key: 'any' }, { label: 'Available Today', key: 'today' }, { label: 'This Week', key: 'week' }];
 
 export default function DoctorListing() {
+  const [searchParams] = useSearchParams();
   const [search, setSearch]   = useState('');
+  const [city, setCity]       = useState('');
+  const [available, setAvailable] = useState('any');
   const [spec, setSpec]       = useState('');
   const [gender, setGender]   = useState('Any');
   const [minRating, setRating]= useState(0);
   const [sortBy, setSort]     = useState('Relevance');
   const [feeMin, setFeeMin]   = useState('');
   const [feeMax, setFeeMax]   = useState('');
+  const [page, setPage] = useState(1);
+  const [limit] = useState(12);
+  const [totalDoctors, setTotalDoctors] = useState(0);
   const [doctorsData, setDoctorsData] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+
+  const buildQuery = (overrides = {}) => {
+    const params = {};
+    const searchValue = overrides.search ?? search;
+    const cityValue = overrides.city ?? city;
+    const specialtyValue = overrides.specialty ?? spec;
+    const availableValue = overrides.available ?? available;
+
+    if (searchValue) params.q = searchValue;
+    if (cityValue) params.city = cityValue;
+    if (specialtyValue) params.specialty = specialtyValue;
+    if (gender !== 'Any') params.gender = gender;
+    if (availableValue !== 'any') params.available = 'true';
+    params.page = overrides.page ?? page;
+    params.limit = limit;
+    return params;
+  };
+
+  const fetchDoctors = async (overrides = {}) => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      const result = await api.getDoctors(buildQuery(overrides));
+      const doctors = Array.isArray(result) ? result : result.doctors || [];
+      setDoctorsData(doctors.map(normalizeDoctor));
+      setTotalDoctors(result.total ?? doctors.length);
+      setPage(result.page ?? overrides.page ?? page);
+    } catch (err) {
+      setError(err.message || 'Failed to fetch doctors');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    const q = searchParams.get('q') || '';
+    const cityParam = searchParams.get('city') || '';
+    const specialtyParam = searchParams.get('specialty') || '';
+
+    setSearch(q);
+    setCity(cityParam);
+    setSpec(specialtyParam);
+    setPage(1);
+    fetchDoctors({ search: q, city: cityParam, specialty: specialtyParam, page: 1 });
+  }, [searchParams]);
 
   const filtered = doctorsData.filter(d => {
     const q = search.toLowerCase();
@@ -38,25 +91,18 @@ export default function DoctorListing() {
     return 0;
   });
 
-  const reset = () => { setSpec(''); setGender('Any'); setRating(0); setFeeMin(''); setFeeMax(''); setSearch(''); };
-
-  useEffect(() => {
-    const fetchDoctors = async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const data = await api.getDoctors();
-        const mapped = (Array.isArray(data) ? data : data.doctors || []).map(normalizeDoctor);
-        setDoctorsData(mapped);
-      } catch (err) {
-        setError(err.message || 'Failed to fetch doctors');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchDoctors();
-  }, []);
+  const reset = () => {
+    setSpec('');
+    setGender('Any');
+    setRating(0);
+    setFeeMin('');
+    setFeeMax('');
+    setAvailable('any');
+    setSearch('');
+    setCity('');
+    setPage(1);
+    fetchDoctors({ search: '', city: '', specialty: '', available: 'any', page: 1 });
+  };
 
   const specialties = useMemo(() => {
     const set = new Set();
@@ -88,18 +134,23 @@ export default function DoctorListing() {
             </div>
             <div className="border-r border-border pr-4">
               <p className="text-[11px] font-bold text-muted uppercase tracking-[0.6px]">City</p>
-              <select className="text-[14px] text-dark outline-none bg-transparent mt-0.5">
-                <option>All Cities</option>
-                <option>Karachi</option><option>Lahore</option><option>Islamabad</option><option>Rawalpindi</option>
+              <select value={city} onChange={e => setCity(e.target.value)} className="text-[14px] text-dark outline-none bg-transparent mt-0.5">
+                <option value="">All Cities</option>
+                <option value="Karachi">Karachi</option>
+                <option value="Lahore">Lahore</option>
+                <option value="Islamabad">Islamabad</option>
+                <option value="Rawalpindi">Rawalpindi</option>
               </select>
             </div>
             <div>
               <p className="text-[11px] font-bold text-muted uppercase tracking-[0.6px]">Availability</p>
-              <select className="text-[14px] text-dark outline-none bg-transparent mt-0.5">
-                <option>Any Date</option><option>Today</option><option>This Week</option>
+              <select value={available} onChange={e => setAvailable(e.target.value)} className="text-[14px] text-dark outline-none bg-transparent mt-0.5">
+                {avail.map(option => (
+                  <option key={option.key} value={option.key}>{option.label}</option>
+                ))}
               </select>
             </div>
-            <button className="flex items-center gap-2 bg-blue text-white px-5 py-3 rounded-[8px] text-[15px] font-bold hover:bg-blue-dark transition-colors ml-2">
+            <button onClick={fetchDoctors} className="flex items-center gap-2 bg-blue text-white px-5 py-3 rounded-[8px] text-[15px] font-bold hover:bg-blue-dark transition-colors ml-2">
               <MagnifyingGlass size={18} weight="bold" /> Search
             </button>
           </div>
@@ -172,15 +223,14 @@ export default function DoctorListing() {
               {/* Availability */}
               <div>
                 <p className="text-[13px] font-bold text-slate uppercase tracking-[0.6px] mb-3.5">Availability</p>
-                {avail.map(a => (
-                  <label key={a.key} className="flex items-center gap-2.5 mb-2.5 cursor-pointer">
-                    <div className="w-[18px] h-[18px] rounded-[5px] border-2 border-border flex items-center justify-center flex-shrink-0" />
-                    <span className="text-[14px] text-dark">{a.label}</span>
-                  </label>
-                ))}
+                <select value={available} onChange={e => setAvailable(e.target.value)} className="form-input text-[14px] w-full">
+                  {avail.map(a => (
+                    <option key={a.key} value={a.key}>{a.label}</option>
+                  ))}
+                </select>
               </div>
 
-              <button className="w-full mt-5 py-3 bg-blue text-white rounded-sm text-[14px] font-bold hover:bg-blue-dark transition-colors">
+              <button onClick={fetchDoctors} className="w-full mt-5 py-3 bg-blue text-white rounded-sm text-[14px] font-bold hover:bg-blue-dark transition-colors">
                 Apply Filters
               </button>
             </div>
@@ -221,13 +271,38 @@ export default function DoctorListing() {
 
             {/* Pagination */}
             {!loading && !error && filtered.length > 0 && (
-              <div className="flex justify-center gap-1.5 mt-9">
-                {['←', '1', '2', '3', '4', '→'].map((p, i) => (
-                  <button key={i}
-                    className={`w-[38px] h-[38px] rounded-sm border text-[14px] font-semibold transition-all duration-200 ${
-                      p === '1' ? 'bg-blue border-blue text-white' : 'border-border text-slate hover:border-blue hover:text-blue bg-white'
-                    }`}>{p}</button>
-                ))}
+              <div className="flex flex-col items-center gap-3 mt-9">
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (page > 1) fetchDoctors({ page: page - 1 });
+                    }}
+                    disabled={page === 1}
+                    className="btn-ghost px-4 py-2 disabled:opacity-50"
+                  >
+                    Previous
+                  </button>
+
+                  <span className="text-[14px] text-slate">
+                    Page <strong className="text-dark">{page}</strong> of <strong className="text-dark">{Math.max(1, Math.ceil(totalDoctors / limit))}</strong>
+                  </span>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const totalPages = Math.max(1, Math.ceil(totalDoctors / limit));
+                      if (page < totalPages) fetchDoctors({ page: page + 1 });
+                    }}
+                    disabled={page >= Math.max(1, Math.ceil(totalDoctors / limit))}
+                    className="btn-ghost px-4 py-2 disabled:opacity-50"
+                  >
+                    Next
+                  </button>
+                </div>
+                <div className="text-[13px] text-muted">
+                  Showing {filtered.length} of {totalDoctors} doctors
+                </div>
               </div>
             )}
           </main>

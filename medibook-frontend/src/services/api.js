@@ -1,4 +1,4 @@
-const API = "http://localhost:5000/api";
+const API = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 
 const handleResponse = async (res) => {
   const data = await res.json();
@@ -123,6 +123,18 @@ export const api = {
     const query = date ? `?date=${date}` : '';
     return request(`${API}/doctors/${id}/availability${query}`);
   },
+
+  getReviews: async (doctorId) => {
+    const query = doctorId ? `?doctor_id=${doctorId}` : '';
+    return request(`${API}/reviews${query}`);
+  },
+
+  postReview: async (body) =>
+    request(`${API}/reviews`, {
+      method: 'POST',
+      credentials: true,
+      body,
+    }),
 
   getAllDoctors: async () => request(`${API}/doctors`),
 

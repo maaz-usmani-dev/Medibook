@@ -49,6 +49,39 @@ export default function DoctorProfile() {
   const [error, setError] = useState(null);
   const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().slice(0,10));
   const [calendarMonth, setCalendarMonth] = useState(() => new Date());
+  const [reviews, setReviews] = useState([]);
+  const [reviewText, setReviewText] = useState('');
+  const [reviewRating, setReviewRating] = useState(5);
+  const [reviewSubmitting, setReviewSubmitting] = useState(false);
+  const [reviewError, setReviewError] = useState('');
+  const [currentUser, setCurrentUser] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem('user') || 'null');
+    } catch {
+      return null;
+    }
+  });
+
+  const fallbackReviews = [
+    {
+      full_name: 'Ali Hassan',
+      rating: 5,
+      text: 'Excellent doctor, very thorough and patient. Explained everything clearly.',
+      created_at: new Date(Date.now() - 1000 * 60 * 60 * 24 * 14).toISOString(),
+    },
+    {
+      full_name: 'Nadia B.',
+      rating: 5,
+      text: 'Best consultation I have had. She truly listens and provides detailed advice.',
+      created_at: new Date(Date.now() - 1000 * 60 * 60 * 24 * 30).toISOString(),
+    },
+    {
+      full_name: 'Kamran A.',
+      rating: 4,
+      text: 'Very professional and knowledgeable. Appointment was on time.',
+      created_at: new Date(Date.now() - 1000 * 60 * 60 * 24 * 60).toISOString(),
+    },
+  ];
 
   const calendarDays = buildCalendarDays(calendarMonth);
   const todayKey = toDateKey(new Date());
@@ -120,6 +153,21 @@ export default function DoctorProfile() {
   }, [id]);
 
   useEffect(() => {
+    const loadReviews = async () => {
+      try {
+        const data = await api.getReviews(id);
+        setReviews(Array.isArray(data) ? data : []);
+      } catch (err) {
+        console.warn('Unable to load reviews', err);
+      }
+    };
+
+    if (id) {
+      loadReviews();
+    }
+  }, [id]);
+
+  useEffect(() => {
     if (!id || !selectedDate) return;
     const loadSlots = async () => {
       setLoadingSlots(true);
@@ -136,11 +184,40 @@ export default function DoctorProfile() {
     loadSlots();
   }, [id, selectedDate]);
 
-  const reviews = [
-    { name: 'Ali Hassan',   rating: 5, date: '2 weeks ago', text: 'Excellent doctor, very thorough and patient. Explained everything clearly.' },
-    { name: 'Nadia B.',     rating: 5, date: '1 month ago', text: 'Best consultation I have had. She truly listens and provides detailed advice.' },
-    { name: 'Kamran A.',    rating: 4, date: '2 months ago',text: 'Very professional and knowledgeable. Appointment was on time.' },
-  ];
+  const handleSubmitReview = async (event) => {
+    event.preventDefault();
+    if (!currentUser) {
+      setReviewError('Please sign in to submit a review.');
+      return;
+    }
+    if (!reviewText.trim()) {
+      setReviewError('Please write your review before submitting.');
+      return;
+    }
+
+    setReviewSubmitting(true);
+    setReviewError('');
+
+    try {
+      const payload = {
+        doctor_id: Number(id),
+        rating: Number(reviewRating),
+        text: reviewText.trim(),
+      };
+      const created = await api.postReview(payload);
+      setReviews(prev => [created, ...prev]);
+      setReviewText('');
+      setReviewRating(5);
+      if (doctor) {
+        const updatedDoctor = await api.getDoctorById(id);
+        setDoctor(normalizeDoctor(updatedDoctor));
+      }
+    } catch (err) {
+      setReviewError(err.message || 'Unable to submit review.');
+    } finally {
+      setReviewSubmitting(false);
+    }
+  };
 
   if (loadingDoc) {
     return (
@@ -300,7 +377,7 @@ export default function DoctorProfile() {
       {/* Tabs + content */}
       <div className="max-w-[1240px] mx-auto px-10 py-10 pb-20">
         <div className="flex border-b-2 border-border mb-9">
-          {['About', 'Education & Experience', `Reviews (${doctor?.reviews})`].map(t => (
+          {['About', 'Education & Experience', `Reviews (${(reviews.length || fallbackReviews.length)})`].map(t => (
             <button key={t} onClick={() => setTab(t.split(' (')[0])}
               className={`px-7 py-4 text-[15px] font-semibold transition-all duration-200 border-b-2 -mb-0.5 ${
                 tab === t.split(' (')[0]
@@ -322,7 +399,7 @@ export default function DoctorProfile() {
             </div>
           )}
 
-          {tab === 'Education' && (
+          {tab === 'Education & Experience' && (
             <div>
               <h3 className="text-[18px] font-bold text-dark mb-5">Education &amp; Training</h3>
               {(doctor?.education || []).map((edu, i) => (
@@ -340,24 +417,55 @@ export default function DoctorProfile() {
           )}
 
           {tab === 'Reviews' && (
-            <div className="space-y-4">
-              {reviews.map((r, i) => (
-                <div key={i} className="card p-5">
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-9 h-9 rounded-full bg-blue text-white text-sm font-bold flex items-center justify-center">
-                        {r.name[0]}
-                      </div>
-                      <div>
-                        <p className="text-[14px] font-bold text-dark">{r.name}</p>
-                        <p className="text-[12px] text-muted">{r.date}</p>
-                      </div>
-                    </div>
-                    <div className="stars text-[13px]">{'★'.repeat(r.rating)}</div>
+            <div className="space-y-6">
+              <div className="card p-5">
+                <h3 className="text-[18px] font-bold text-dark mb-3">Submit a review</h3>
+                {reviewError && <div className="text-red text-[13px] mb-3">{reviewError}</div>}
+                <form onSubmit={handleSubmitReview} className="space-y-4">
+                  <div>
+                    <label className="block text-[13px] font-semibold text-slate mb-2">Rating</label>
+                    <select value={reviewRating} onChange={e => setReviewRating(Number(e.target.value))} className="form-input w-full">
+                      {[5,4,3,2,1].map(value => (
+                        <option key={value} value={value}>{value} star{value > 1 ? 's' : ''}</option>
+                      ))}
+                    </select>
                   </div>
-                  <p className="text-[14px] text-slate leading-relaxed">{r.text}</p>
-                </div>
-              ))}
+                  <div>
+                    <label className="block text-[13px] font-semibold text-slate mb-2">Review</label>
+                    <textarea
+                      rows={4}
+                      value={reviewText}
+                      onChange={e => setReviewText(e.target.value)}
+                      className="form-input w-full resize-none"
+                      placeholder="Share your experience..."
+                    />
+                  </div>
+                  <button type="submit" disabled={reviewSubmitting}
+                    className="btn-primary">
+                    {reviewSubmitting ? 'Submitting review...' : 'Submit review'}
+                  </button>
+                </form>
+              </div>
+
+              <div className="space-y-4">
+                {(reviews.length > 0 ? reviews : fallbackReviews).map((r, i) => (
+                  <div key={i} className="card p-5">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-9 h-9 rounded-full bg-blue text-white text-sm font-bold flex items-center justify-center">
+                          {r.full_name ? r.full_name[0] : 'P'}
+                        </div>
+                        <div>
+                          <p className="text-[14px] font-bold text-dark">{r.full_name || r.user_name || 'Patient'}</p>
+                          <p className="text-[12px] text-muted">{new Date(r.created_at).toLocaleDateString()}</p>
+                        </div>
+                      </div>
+                      <div className="stars text-[13px]">{'★'.repeat(Math.min(5, r.rating || 5))}</div>
+                    </div>
+                    <p className="text-[14px] text-slate leading-relaxed">{r.text}</p>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
         </div>

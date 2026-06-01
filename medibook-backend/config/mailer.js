@@ -57,14 +57,19 @@ const sendEmail = async ({ to, subject, html }) => {
     return false;
   }
 
-  await activeTransporter.sendMail({
-    from: process.env.MAIL_FROM || process.env.MAIL_USER,
-    to,
-    subject,
-    html,
-  });
-
-  return true;
+  try {
+    await activeTransporter.sendMail({
+      from: process.env.MAIL_FROM || process.env.MAIL_USER,
+      to,
+      subject,
+      html,
+    });
+    console.log(`✅ Email sent successfully to ${to}`);
+    return true;
+  } catch (error) {
+    console.error(`❌ Failed to send email to ${to}:`, error.message);
+    throw error;
+  }
 };
 
 const sendBookingConfirmation = async (emailOrDetails, maybeDetails) => {

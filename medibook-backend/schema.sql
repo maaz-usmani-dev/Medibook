@@ -76,6 +76,17 @@ CREATE TABLE IF NOT EXISTS appointments (
   FOREIGN KEY (doctor_id)  REFERENCES doctors(id) ON DELETE CASCADE
 );
 
+CREATE TABLE IF NOT EXISTS reviews (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  user_id INT NOT NULL,
+  doctor_id INT DEFAULT NULL,
+  rating TINYINT NOT NULL,
+  text TEXT NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  FOREIGN KEY (doctor_id) REFERENCES doctors(id) ON DELETE SET NULL
+);
+
 -- ─────────────────────────────────────────
 --  SEED DATA
 --  Passwords are all: password123

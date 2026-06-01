@@ -2,89 +2,103 @@ const db = require('../config/db');
 
 exports.getAllDoctors = async (req, res) => {
   try {
-    const { specialty, gender, available } = req.query;
-
-    // IMPORTANT: avoid LEFT JOIN availability unless needed.
-    // LEFT JOIN + DISTINCT can explode in size if availability has many rows per doctor,
-    // making /api/doctors appear to hang (frontend stuck on loading).
+    const {
+      specialty,
+      gender,
+      available,
+      q,
+      city,
+      page = 1,
+      limit = 12,
+    } = req.query;
     const shouldFilterByAvailability = available === 'true';
-
-    let query;
     const values = [];
 
-    if (!shouldFilterByAvailability) {
-      query = `
-        SELECT DISTINCT
-          d.id,
-          d.user_id,
-          d.specialty,
-          d.experience_years,
-          d.fee,
-          d.gender,
-          d.hospital,
-          d.bio,
-          u.avatar_url,
-          u.full_name,
-          u.email,
-          u.phone
-        FROM doctors d
-        JOIN users u
-          ON d.user_id = u.id
-        WHERE d.status = 'active'
-      `;
+    let whereClause = `
+      WHERE d.status = 'active'
+    `;
 
-      if (specialty) {
-        query += ' AND d.specialty = ?';
-        values.push(specialty);
-      }
-
-      if (gender) {
-        query += ' AND d.gender = ?';
-        values.push(gender);
-      }
-    } else {
-      // Filter doctors that have at least one availability row.
-      query = `
-        SELECT DISTINCT
-          d.id,
-          d.user_id,
-          d.specialty,
-          d.experience_years,
-          d.fee,
-          d.gender,
-          d.hospital,
-          d.bio,
-          u.avatar_url,
-          u.full_name,
-          u.email,
-          u.phone
-        FROM doctors d
-        JOIN users u
-          ON d.user_id = u.id
-        WHERE d.status = 'active'
-          AND EXISTS (
-            SELECT 1
-            FROM availability a
-            WHERE a.doctor_id = d.id
-          )
-      `;
-
-      if (specialty) {
-        query += ' AND d.specialty = ?';
-        values.push(specialty);
-      }
-
-      if (gender) {
-        query += ' AND d.gender = ?';
-        values.push(gender);
-      }
+    if (specialty) {
+      whereClause += ' AND d.specialty = ?';
+      values.push(specialty);
     }
 
-    const [doctors] = await db.query(query, values);
-    res.json(doctors);
+    if (gender) {
+      whereClause += ' AND d.gender = ?';
+      values.push(gender);
+    }
+
+    if (city) {
+      whereClause += ' AND d.hospital LIKE ?';
+      values.push(`%${city}%`);
+    }
+
+    if (q) {
+      whereClause += ' AND (u.full_name LIKE ? OR d.specialty LIKE ? OR d.hospital LIKE ? OR d.bio LIKE ?)';
+      const searchToken = `%${q}%`;
+      values.push(searchToken, searchToken, searchToken, searchToken);
+    }
+
+    if (shouldFilterByAvailability) {
+      whereClause += `
+        AND EXISTS (
+          SELECT 1
+          FROM availability a
+          WHERE a.doctor_id = d.id
+        )
+      `;
+    }
+
+    const countQuery = `
+      SELECT COUNT(DISTINCT d.id) AS total
+      FROM doctors d
+      JOIN users u
+        ON d.user_id = u.id
+      ${whereClause}
+    `;
+
+    const [[{ total }]] = await db.query(countQuery, values);
+
+    const pageNumber = Math.max(Number(page) || 1, 1);
+    const pageSize = Math.max(Number(limit) || 12, 1);
+    const offset = (pageNumber - 1) * pageSize;
+
+    const query = `
+      SELECT DISTINCT
+        d.id,
+        d.user_id,
+        d.specialty,
+        d.experience_years,
+        d.fee,
+        d.gender,
+        d.hospital,
+        d.bio,
+        d.rating,
+        d.review_count,
+        u.avatar_url,
+        u.full_name,
+        u.email,
+        u.phone
+      FROM doctors d
+      JOIN users u
+        ON d.user_id = u.id
+      ${whereClause}
+      ORDER BY d.review_count DESC, d.rating DESC, d.experience_years DESC
+      LIMIT ?
+      OFFSET ?
+    `;
+
+    const [doctors] = await db.query(query, [...values, pageSize, offset]);
+
+    res.json({
+      doctors,
+      total,
+      page: pageNumber,
+      limit: pageSize,
+    });
   } catch (err) {
     res.status(500).json({
-      message: err.message
+      message: err.message,
     });
   }
 };

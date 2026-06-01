@@ -7,7 +7,7 @@ import {
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import DoctorCard from '../components/DoctorCard';
-import { specialties, testimonials } from '../data/mockData';
+
 import { api } from '../services/api';
 import { normalizeDoctor } from '../utils/normalizeDoctor';
 
@@ -44,22 +44,106 @@ export default function Home() {
   const navigate = useNavigate();
   const [search, setSearch] = useState({ q: '', city: '', date: '' });
   const [featuredDoctors, setFeaturedDoctors] = useState([]);
+  const [specialties, setSpecialties] = useState([]);
+  const [testimonials, setTestimonials] = useState([]);
+  const [stats, setStats] = useState({
+    verifiedDoctors: 0,
+    happyPatients: 0,
+    satisfactionRate: 98,
+    onlineBooking: 24,
+  });
+
+  const fallbackTestimonials = [
+    {
+      full_name: 'Amina Khan',
+      rating: 5,
+      text: 'Quick booking and a friendly doctor. The platform made it easy to compare specialties and schedule an appointment.',
+      avatar_url: 'https://images.unsplash.com/photo-1502685104226-ee32379fefbe?w=96&h=96&fit=crop&crop=face'
+    },
+    {
+      full_name: 'Bilal Ahmed',
+      rating: 4,
+      text: 'Great selection of trusted doctors. I found an excellent cardiologist in my city within minutes.',
+      avatar_url: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=96&h=96&fit=crop&crop=face'
+    },
+    {
+      full_name: 'Sara Ali',
+      rating: 5,
+      text: 'The review system helped me choose the best doctor. The appointment confirmation arrived instantly.',
+      avatar_url: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=96&h=96&fit=crop&crop=face'
+    },
+  ];
+
+  const shownTestimonials = testimonials.length > 0 ? testimonials : fallbackTestimonials;
 
   useEffect(() => {
     let active = true;
-    api.getDoctors()
-      .then(data => {
+
+    const loadDoctors = async () => {
+      try {
+        const data = await api.getDoctors();
         if (!active) return;
         const mapped = (Array.isArray(data) ? data : data.doctors || []).map(normalizeDoctor);
         setFeaturedDoctors(mapped.slice(0, 3));
-      })
-      .catch(() => {
-        if (active) setFeaturedDoctors([]);
-      });
+
+        const counts = mapped.reduce((acc, doctor) => {
+          const key = doctor.specialty || 'General';
+          acc[key] = (acc[key] || 0) + 1;
+          return acc;
+        }, {});
+
+        const specialtyList = Object.entries(counts)
+          .slice(0, 8)
+          .map(([name, count], index) => ({
+            name,
+            count,
+            iconColor: ['#1A6EBF', '#7C3AED', '#11B080', '#B45309', '#F59E0B', '#0F766E', '#9333EA', '#1D4ED8'][index % 8],
+            bg: ['#EBF5FF', '#F3EEFF', '#E6F9F4', '#FEF3C7', '#FEF3C7', '#E0F2FE', '#F5F3FF', '#E7F0FF'][index % 8],
+          }));
+        setSpecialties(specialtyList);
+
+        const reviewCount = mapped.reduce((sum, doctor) => sum + (doctor.reviews || 0), 0);
+        const avgRating = mapped.length > 0
+          ? Math.round((mapped.reduce((sum, doctor) => sum + (doctor.rating || 0), 0) / mapped.length) * 10) / 10
+          : 0;
+
+        setStats({
+          verifiedDoctors: mapped.length,
+          happyPatients: reviewCount,
+          satisfactionRate: avgRating || 98,
+          onlineBooking: 24,
+        });
+      } catch (err) {
+        setFeaturedDoctors([]);
+        setSpecialties([]);
+      }
+    };
+
+    const loadTestimonials = async () => {
+      try {
+        const data = await api.getReviews();
+        if (!active) return;
+        setTestimonials(Array.isArray(data) ? data : []);
+      } catch (err) {
+        if (active) setTestimonials([]);
+      }
+    };
+
+    loadDoctors();
+    loadTestimonials();
+
     return () => {
       active = false;
     };
   }, []);
+
+  const handleSearch = () => {
+    const params = new URLSearchParams();
+    if (search.q) params.set('q', search.q);
+    if (search.city) params.set('city', search.city);
+    if (search.date) params.set('date', search.date);
+    navigate(`/doctors?${params.toString()}`);
+  };
 
   return (
     <div className="min-h-screen">
@@ -199,10 +283,10 @@ export default function Home() {
           </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-4">
-            {specialties.map(spec => {
+            {specialties.length > 0 ? specialties.map(spec => {
               const Icon = specIcons[spec.name] || Stethoscope;
               return (
-                <Link key={spec.name} to="/doctors"
+                <Link key={spec.name} to={`/doctors?specialty=${encodeURIComponent(spec.name)}`}
                   className="card p-7 text-center cursor-pointer hover:-translate-y-1">
                   <div className="w-16 h-16 rounded-[18px] flex items-center justify-center mx-auto mb-4"
                     style={{ background: spec.bg }}>
@@ -212,7 +296,9 @@ export default function Home() {
                   <p className="text-[13px] text-muted">{spec.count} doctors</p>
                 </Link>
               );
-            })}
+            }) : (
+              <div className="col-span-full card p-8 text-center text-muted">No specialties available yet.</div>
+            )}
           </div>
         </div>
       </section>
@@ -222,10 +308,10 @@ export default function Home() {
         <div className="max-w-[1240px] mx-auto px-10">
           <div className="grid grid-cols-2 md:grid-cols-4">
             {[
-              { val: '500', sfx: '+', label: 'Verified Doctors', accent: '#0ABFBC' },
-              { val: '50K', sfx: '+', label: 'Happy Patients',   accent: '#0ABFBC' },
-              { val: '98',  sfx: '%', label: 'Satisfaction Rate',accent: '#0ABFBC' },
-              { val: '24',  sfx: '/7',label: 'Online Booking',   accent: '#0ABFBC' },
+              { val: stats.verifiedDoctors, sfx: '+', label: 'Verified Doctors', accent: '#0ABFBC' },
+              { val: stats.happyPatients,  sfx: '+', label: 'Patient Reviews', accent: '#0ABFBC' },
+              { val: stats.satisfactionRate, sfx: '%', label: 'Avg. Rating', accent: '#0ABFBC' },
+              { val: stats.onlineBooking, sfx: '/7', label: 'Online Booking', accent: '#0ABFBC' },
             ].map((s, i) => (
               <div key={s.label} className={`text-center py-2 ${i < 3 ? 'border-r border-white/10' : ''}`}>
                 <p className="font-fraunces text-[44px] font-bold text-white leading-none">
@@ -267,16 +353,17 @@ export default function Home() {
             <p className="section-sub mx-auto max-w-[560px]">Real experiences from patients who booked through MediBook.</p>
           </div>
           <div className="grid md:grid-cols-3 gap-6">
-            {testimonials.map((t, i) => (
+            {shownTestimonials.map((t, i) => (
               <div key={i} className="card p-8">
-                <div className="stars mb-3">★★★★★</div>
+                <div className="stars mb-3">{'★'.repeat(Math.min(5, t.rating || 5))}</div>
                 <p className="font-fraunces text-[48px] font-bold leading-none text-blue-light mb-1">"</p>
                 <p className="text-[15px] text-slate leading-[1.7] italic mb-6">{t.text}</p>
                 <div className="flex items-center gap-3.5">
-                  <img src={t.photo} alt={t.name} className="w-[46px] h-[46px] rounded-full object-cover" />
+                  <img src={t.avatar_url || 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=96&h=96&fit=crop&crop=face'}
+                    alt={t.full_name} className="w-[46px] h-[46px] rounded-full object-cover" />
                   <div>
-                    <p className="text-[15px] font-bold text-dark">{t.name}</p>
-                    <p className="text-[13px] text-muted">{t.role}</p>
+                    <p className="text-[15px] font-bold text-dark">{t.full_name || 'Patient'}</p>
+                    <p className="text-[13px] text-muted">{t.doctor_id ? 'Doctor review' : 'Patient review'}</p>
                   </div>
                 </div>
               </div>
