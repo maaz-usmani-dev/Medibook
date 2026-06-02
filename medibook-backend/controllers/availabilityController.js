@@ -13,29 +13,24 @@ exports.getSlots = async (req, res) => {
     const values = [doctorId];
 
     if (date) {
-      const parsedDate = new Date(date);
+        // Parse YYYY-MM-DD as a local date to avoid timezone shifts.
+        let parsedDate;
+        if (/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+          const [y, m, d] = date.split('-').map(n => parseInt(n, 10));
+          parsedDate = new Date(y, m - 1, d);
+        } else {
+          parsedDate = new Date(date);
+        }
 
-      if (isNaN(parsedDate.getTime())) {
-        return res.status(400).json({
-          message: 'Invalid date format'
-        });
-      }
+        if (isNaN(parsedDate.getTime())) {
+          return res.status(400).json({ message: 'Invalid date format' });
+        }
 
-      const shortDays = [
-        'Sun',
-        'Mon',
-        'Tue',
-        'Wed',
-        'Thu',
-        'Fri',
-        'Sat'
-      ];
+        const shortDays = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+        const dayCode = shortDays[parsedDate.getDay()];
 
-      const dayCode = shortDays[parsedDate.getDay()];
-
-      query += ' AND day_of_week = ?';
-
-      values.push(dayCode);
+        query += ' AND day_of_week = ?';
+        values.push(dayCode);
     }
 
     query += `

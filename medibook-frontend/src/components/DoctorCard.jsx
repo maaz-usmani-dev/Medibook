@@ -1,8 +1,26 @@
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Star, Clock, MapPin } from '@phosphor-icons/react';
 import Avatar from './Avatar';
 
 export default function DoctorCard({ doctor, horizontal = false }) {
+  const navigate = useNavigate();
+
+  const handleBookClick = (e) => {
+    // If user not logged in, redirect to login.
+    try {
+      const user = JSON.parse(localStorage.getItem('user') || 'null');
+      if (!user) {
+        navigate('/login', { state: { next: `/doctors/${doctor.id}` } });
+        return;
+      }
+    } catch {
+      navigate('/login', { state: { next: `/doctors/${doctor.id}` } });
+      return;
+    }
+
+    navigate(`/doctors/${doctor.id}`);
+  };
+
   if (horizontal) {
     return (
       <article className="card flex overflow-hidden cursor-pointer group">
@@ -44,7 +62,7 @@ export default function DoctorCard({ doctor, horizontal = false }) {
             </div>
             <div className="flex gap-2.5">
               <Link to={`/doctors/${doctor.id}`} className="btn-ghost py-[9px] px-[18px] text-[13px]">View Profile</Link>
-              <Link to={`/doctors/${doctor.id}`} className="btn-primary py-[9px] px-[18px] text-[13px]">Book Appointment</Link>
+              <button onClick={handleBookClick} className="btn-primary py-[9px] px-[18px] text-[13px]">Book Appointment</button>
             </div>
           </div>
         </div>
@@ -70,7 +88,7 @@ export default function DoctorCard({ doctor, horizontal = false }) {
           <span className="text-[16px] font-bold text-blue">
             PKR {doctor.fee.toLocaleString()} <span className="text-[12px] font-normal text-muted">/ visit</span>
           </span>
-          <Link to={`/doctors/${doctor.id}`} className="btn-primary py-2 px-5 text-[13px]">Book Now</Link>
+          <button onClick={handleBookClick} className="btn-primary py-2 px-5 text-[13px]">Book Now</button>
         </div>
       </div>
     </article>

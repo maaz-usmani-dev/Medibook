@@ -110,6 +110,9 @@ export default function DoctorListing() {
     return Array.from(set).map(name => ({ name }));
   }, [doctorsData]);
 
+  const totalPages = Math.max(1, Math.ceil(totalDoctors / limit));
+  const shouldShowPagination = totalPages > 1 && !(page === 1 && filtered.length <= limit);
+
   return (
     <div className="min-h-screen">
       <Navbar />
@@ -140,6 +143,13 @@ export default function DoctorListing() {
                 <option value="Lahore">Lahore</option>
                 <option value="Islamabad">Islamabad</option>
                 <option value="Rawalpindi">Rawalpindi</option>
+              </select>
+            </div>
+            <div className="border-r border-border pr-4">
+              <p className="text-[11px] font-bold text-muted uppercase tracking-[0.6px]">Specialty</p>
+              <select value={spec} onChange={e => setSpec(e.target.value)} className="text-[14px] text-dark outline-none bg-transparent mt-0.5">
+                <option value="">All Specialties</option>
+                {specialties.map(s => <option key={s.name}>{s.name}</option>)}
               </select>
             </div>
             <div>
@@ -270,7 +280,7 @@ export default function DoctorListing() {
             </div>
 
             {/* Pagination */}
-            {!loading && !error && filtered.length > 0 && (
+            {shouldShowPagination && (
               <div className="flex flex-col items-center gap-3 mt-9">
                 <div className="flex items-center gap-3">
                   <button
@@ -285,16 +295,15 @@ export default function DoctorListing() {
                   </button>
 
                   <span className="text-[14px] text-slate">
-                    Page <strong className="text-dark">{page}</strong> of <strong className="text-dark">{Math.max(1, Math.ceil(totalDoctors / limit))}</strong>
+                    Page <strong className="text-dark">{page}</strong> of <strong className="text-dark">{totalPages}</strong>
                   </span>
 
                   <button
                     type="button"
                     onClick={() => {
-                      const totalPages = Math.max(1, Math.ceil(totalDoctors / limit));
                       if (page < totalPages) fetchDoctors({ page: page + 1 });
                     }}
-                    disabled={page >= Math.max(1, Math.ceil(totalDoctors / limit))}
+                    disabled={page >= totalPages}
                     className="btn-ghost px-4 py-2 disabled:opacity-50"
                   >
                     Next

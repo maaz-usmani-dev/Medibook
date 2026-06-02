@@ -98,6 +98,13 @@ export default function DoctorProfile() {
 
   const handleBook = async () => {
     if (!selectedSlot || !doctor) return;
+
+    // Require authentication before booking
+    if (!currentUser) {
+      navigate('/login', { state: { next: `/doctors/${id}` } });
+      return;
+    }
+
     setBookingLoading(true);
     setBookingError(null);
 
