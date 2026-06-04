@@ -1,0 +1,6 @@
+medibook-backend/.env
+# Ignore IDE specific files
+.vscode/
+.idea/
+.codexignore
+medibook-frontend/.env
